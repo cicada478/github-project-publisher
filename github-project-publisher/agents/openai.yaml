@@ -1,0 +1,7 @@
+interface:
+  display_name: "GitHub 规范发布"
+  short_description: "按可审计流程检查项目、撰写文档并安全发布到 GitHub"
+  default_prompt: "Use $github-project-publisher to audit this project, improve its README and release notes, then prepare a safe GitHub publication."
+
+policy:
+  allow_implicit_invocation: true
