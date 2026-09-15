@@ -6,7 +6,7 @@
 
 ## 项目状态
 
-本仓库包含 GitHub Project Publisher 的 Skill 源码。`RELEASE_NOTES.md` 中的版本号为发布建议，不代表已经创建 Git Tag 或 GitHub Release。
+本仓库包含 GitHub Project Publisher 的 Skill 源码。当前版本为 [`v0.1.0`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.1.0)，对应说明见 [RELEASE_NOTES.md](RELEASE_NOTES.md)。
 
 ## 核心能力
 

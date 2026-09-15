@@ -1,12 +1,12 @@
-# GitHub Release Draft / GitHub Release 草案
+# GitHub Project Publisher v0.1.0
 
-状态：**Draft，仅供审核，尚未发布**
+版本：`v0.1.0`
 
-建议标签：`v0.1.0`（首次公开版本，发布前须由维护者确认）
+发布类型：稳定版 / Stable
 
-目标提交：仅在另行授权创建 Release 时锁定；本次仓库发布不创建 Release
+目标分支：`main`
 
-## 建议 Release 标题
+## Release 标题
 
 ```text
 v0.1.0 — GitHub Project Publisher 初始版本
@@ -14,7 +14,7 @@ v0.1.0 — GitHub Project Publisher 初始版本
 
 ## 中文 Release Notes
 
-这是 GitHub Project Publisher 的首次公开候选版本。该 Codex Skill 将本地项目上传 GitHub 前的检查、文档撰写、提交组织和发布验证整合为一套可审计流程。
+这是 GitHub Project Publisher 的首次公开版本。该 Codex Skill 将本地项目上传 GitHub 前的检查、文档撰写、提交组织和发布验证整合为一套可审计流程。
 
 ### 主要内容
 
@@ -55,7 +55,7 @@ $github-project-publisher 检查当前项目并准备 GitHub 发布。
 
 ## English Release Notes
 
-This is the first public release candidate of GitHub Project Publisher, a Codex skill that turns pre-publication review, documentation, commit preparation, and GitHub verification into an auditable workflow.
+This is the first public release of GitHub Project Publisher, a Codex skill that turns pre-publication review, documentation, commit preparation, and GitHub verification into an auditable workflow.
 
 ### Highlights
 
@@ -91,10 +91,3 @@ Copy `github-project-publisher` into `C:\Users\username\.codex\skills`, then inv
 ```text
 $github-project-publisher Audit this project and prepare it for GitHub publication.
 ```
-
-## 发布前仍需确认 / Required before publication
-
-- 由维护者确认版本号与版本策略；
-- 创建并验证目标 commit SHA；
-- 确认 GitHub owner/repository、可见性和默认分支；
-- 在准确发布集合上重新运行预检和项目验证。
