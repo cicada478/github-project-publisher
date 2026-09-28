@@ -43,7 +43,7 @@ v0.2.0 将 GitHub 发布流程升级为“隐私优先、私有仓库先行、�
 ### 验证
 
 - Skill 结构与元数据检查通过。
-- 6 项标准库单元测试通过。
+- 7 项标准库单元测试通过。
 - 当前仓库预检通过。
 - Markdown 相对链接与 `git diff --check` 检查通过。
 - 发布前验证最终提交的 Author、Committer 与附注标签 Tagger 均为 GitHub ID 型 `noreply`。
@@ -92,7 +92,7 @@ v0.2.0 makes GitHub publication privacy-first: new repositories begin private, p
 ### Verification
 
 - Skill structure and metadata checks pass.
-- All six standard-library unit tests pass.
+- All seven standard-library unit tests pass.
 - The repository preflight passes.
 - Markdown relative-link validation and `git diff --check` pass.
 - The final Author, Committer, and annotated-tag Tagger identities are verified as GitHub ID-based `noreply` addresses before publication.

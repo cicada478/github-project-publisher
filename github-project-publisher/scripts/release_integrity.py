@@ -40,7 +40,33 @@ def fetch_release(gh: str, repository: str, tag: str) -> dict[str, object]:
         check=False,
     )
     if proc.returncode != 0:
-        raise RuntimeError("GitHub Release metadata could not be read with gh.")
+        proc = subprocess.run(
+            [gh, "api", "--paginate", "--slurp", f"repos/{repository}/releases?per_page=100"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            check=False,
+        )
+        if proc.returncode != 0:
+            raise RuntimeError("GitHub Release metadata could not be read with gh.")
+        try:
+            pages = json.loads(proc.stdout)
+        except json.JSONDecodeError as exc:
+            raise RuntimeError("GitHub Release metadata was not valid JSON.") from exc
+        if not isinstance(pages, list):
+            raise RuntimeError("GitHub Release metadata had an unexpected shape.")
+        matches = [
+            item
+            for page in pages
+            if isinstance(page, list)
+            for item in page
+            if isinstance(item, dict) and item.get("tag_name") == tag
+        ]
+        if len(matches) != 1:
+            raise RuntimeError("The requested GitHub Release could not be identified uniquely.")
+        return matches[0]
     try:
         payload = json.loads(proc.stdout)
     except json.JSONDecodeError as exc:

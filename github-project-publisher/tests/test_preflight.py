@@ -6,6 +6,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
@@ -65,6 +66,18 @@ class PreflightIdentityTests(unittest.TestCase):
 
 
 class ReleaseIntegrityTests(unittest.TestCase):
+    @patch("release_integrity.subprocess.run")
+    def test_draft_release_falls_back_to_paginated_list(self, run) -> None:
+        run.side_effect = [
+            subprocess.CompletedProcess([], 1, "", "not found"),
+            subprocess.CompletedProcess(
+                [], 0, '[[{"tag_name":"v0.2.0","assets":[]}]]', ""
+            ),
+        ]
+        release = release_integrity.fetch_release("gh", "example/project", "v0.2.0")
+        self.assertEqual(release["tag_name"], "v0.2.0")
+        self.assertIn("--paginate", run.call_args_list[1].args[0])
+
     def test_matching_asset_digest_passes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             asset = Path(directory) / "artifact.zip"
