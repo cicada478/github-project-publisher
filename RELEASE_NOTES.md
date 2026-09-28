@@ -22,7 +22,7 @@ v0.2.0 将 GitHub 发布流程升级为“隐私优先、私有仓库先行、�
 
 ### 新增
 
-- 新仓库必须先创建为 Private；上传、审查和全新克隆验证完成后，才单独询问是否转为 Public。
+- 新仓库必须先创建为 Private，在私有状态完成上传、敏感信息审查和全新克隆验证，避免未经审查的凭证、个人信息或其他敏感内容直接暴露；全部通过后，才单独询问是否转为 Public。
 - 新增对话决策规范：仅对可选、歧义或破坏性事项使用结构化选项；强制检查自动执行并报告结果。
 - 强制使用 GitHub ID 型 `noreply` 邮箱，并检查仓库配置、全部可达提交的 Author/Committer，以及附注标签的 Tagger 身份。
 - 新增 `release_integrity.py`，计算本地 Release 资产 SHA-256，并与 GitHub Release API 返回的远端摘要逐项比对。
@@ -71,7 +71,7 @@ v0.2.0 makes GitHub publication privacy-first: new repositories begin private, p
 
 ### Added
 
-- New repositories must be created Private. Upload, review, and fresh-clone verification occur before a separate decision to make the repository Public.
+- New repositories must be created Private so upload, sensitive-data review, and fresh-clone verification can finish before exposure, preventing unreviewed credentials, personal information, or other sensitive content from becoming public. Only after all checks pass is public conversion offered as a separate decision.
 - A conversational decision policy: structured choices are reserved for optional, ambiguous, or destructive decisions; mandatory checks run automatically and report their results.
 - GitHub ID-based `noreply` email enforcement for repository configuration, Author and Committer fields in every reachable commit, and Tagger fields in annotated tags.
 - `release_integrity.py` computes each local Release asset's SHA-256 digest and compares it with the digest returned by the GitHub Releases API.

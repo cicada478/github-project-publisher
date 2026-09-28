@@ -79,8 +79,6 @@ github-project-publisher/
     └── test_preflight.py
 ```
 
-项目早期提供的 `commit规范.md` 已被吸收并校正到 `references/commit-conventions.md`；发布集合不再依赖仓库根目录的原始文件。
-
 ## 环境要求
 
 - 支持本地 Skills 的 Codex；
@@ -92,25 +90,12 @@ github-project-publisher/
 
 ## 安装
 
-### 当前用户级
+下载后，将完整的 `github-project-publisher` 文件夹放到以下任一位置：
 
-在 PowerShell 中，从本仓库根目录执行：
+- 项目级：`<项目根目录>\.codex\skills\github-project-publisher`
+- 用户级（全局）：`C:\Users\username\.codex\skills\github-project-publisher`
 
-```powershell
-$skillsRoot = Join-Path $HOME ".codex\skills"
-New-Item -ItemType Directory -Force -Path $skillsRoot
-Copy-Item -LiteralPath ".\github-project-publisher" -Destination $skillsRoot -Recurse
-```
-
-安装结果应为：
-
-```text
-C:\Users\username\.codex\skills\github-project-publisher\SKILL.md
-```
-
-这里的 `username` 代表 Windows 用户名；当前机器对应的实际根目录为 `C:\Users\Cicada\.codex\skills`。不要多嵌套一层同名目录，`SKILL.md` 必须直接位于 `github-project-publisher` 文件夹下。
-
-Codex 通常会自动发现 Skill；如果没有出现，请打开新任务或重启 Codex。在 CLI 或 IDE 扩展中可使用 `/skills` 检查。需要团队分发时，应发布整个 `github-project-publisher` 目录，由每位用户复制到自己的 `.codex\skills` 目录。
+确保 `SKILL.md` 直接位于该文件夹内，然后重新打开任务或重启 Codex。
 
 ## 使用
 

@@ -79,8 +79,6 @@ github-project-publisher/
     └── test_preflight.py
 ```
 
-The earlier `commit规范.md` source material has been incorporated and corrected in `references/commit-conventions.md`; the publication set no longer depends on the original root-level file.
-
 ## Requirements
 
 - A Codex surface that supports local skills;
@@ -92,25 +90,12 @@ The preflight and Release integrity scripts use only the Python standard library
 
 ## Installation
 
-### User scope
+After downloading, place the complete `github-project-publisher` folder in either location:
 
-Run from this repository root in PowerShell:
+- Project scope: `<project-root>\.codex\skills\github-project-publisher`
+- User scope (global): `C:\Users\username\.codex\skills\github-project-publisher`
 
-```powershell
-$skillsRoot = Join-Path $HOME ".codex\skills"
-New-Item -ItemType Directory -Force -Path $skillsRoot
-Copy-Item -LiteralPath ".\github-project-publisher" -Destination $skillsRoot -Recurse
-```
-
-The resulting entry point must be:
-
-```text
-C:\Users\username\.codex\skills\github-project-publisher\SKILL.md
-```
-
-`username` represents the Windows account name; on the current machine the actual root is `C:\Users\Cicada\.codex\skills`. Do not create an extra nested directory with the same name: `SKILL.md` must be directly inside `github-project-publisher`.
-
-Codex normally detects the skill automatically. If it does not appear, start a new task or restart Codex. Use `/skills` in the CLI or IDE extension to inspect discovered skills. To distribute the skill to a team, publish the complete `github-project-publisher` directory and have each user copy it into their own `.codex\skills` directory.
+Ensure that `SKILL.md` is directly inside that folder, then start a new task or restart Codex.
 
 ## Usage
 
