@@ -1,93 +1,113 @@
-# GitHub Project Publisher v0.1.0
+# GitHub Project Publisher v0.2.0
 
-版本：`v0.1.0`
+发布类型：`稳定版 / Stable`
 
-发布类型：稳定版 / Stable
+发布日期：`2026-09-28`
+
+版本：`v0.2.0`
 
 目标分支：`main`
+
+目标提交：由附注标签 `v0.2.0` 固定。
 
 ## Release 标题
 
 ```text
-v0.1.0 — GitHub Project Publisher 初始版本
+v0.2.0 — Privacy-first publishing gates
 ```
 
 ## 中文 Release Notes
 
-这是 GitHub Project Publisher 的首次公开版本。该 Codex Skill 将本地项目上传 GitHub 前的检查、文档撰写、提交组织和发布验证整合为一套可审计流程。
+v0.2.0 将 GitHub 发布流程升级为“隐私优先、私有仓库先行、公开前独立放行”的强制门禁，并补齐 Git 身份元数据与 Release 资产完整性检查。
 
-### 主要内容
+### 新增
 
-- 提供审计、本地准备、仓库发布和 Release 发布四种工作模式。
-- 提供无第三方依赖的 Python 预检脚本，支持文本和 JSON 输出。
-- 检查仓库状态、README、`.gitignore`、许可证状态、文件大小、生成目录和远程配置。
-- 对 API Key、访问令牌、密码、私钥、Session/Cookie、含凭证 URL、个人信息和支付凭证实施阻断式检查。
-- 检查日志、HAR、trace、dump、崩溃报告，以及可能输出敏感字段的源码日志调用。
-- 提供 README 与 Release Notes 的证据驱动写作规范。
-- 提供 Conventional Commits、版本一致性和安全 GitHub 发布操作手册。
+- 新仓库必须先创建为 Private；上传、审查和全新克隆验证完成后，才单独询问是否转为 Public。
+- 新增对话决策规范：仅对可选、歧义或破坏性事项使用结构化选项；强制检查自动执行并报告结果。
+- 强制使用 GitHub ID 型 `noreply` 邮箱，并检查仓库配置、全部可达提交的 Author/Committer，以及附注标签的 Tagger 身份。
+- 新增 `release_integrity.py`，计算本地 Release 资产 SHA-256，并与 GitHub Release API 返回的远端摘要逐项比对。
+- 新增标准库单元测试，覆盖身份门禁和 Release 资产完整性检查。
 
-### 安全行为
+### 变更
 
-发现敏感信息时，预检仅报告风险类别和 `文件:行号`，不会输出匹配值。发现阻断项时返回退出码 `1`；扫描无法完成时返回退出码 `2`。两种情况均要求停止 commit、push、tag 和 Release。
+- GitHub CLI 与 Git 成为发布操作的首选工具；浏览器自动化仅用于交互式认证或 CLI 确实不支持的操作。
+- Public 转换前必须从远端执行全新克隆，并在克隆副本中复核历史、标签、文档和必要测试。
+- 预检发现真实邮箱或非 GitHub ID 型 `noreply` 身份时，将作为阻断项停止提交、推送、标签、Release 或公开操作。
+- Release 无用户资产时明确报告 SHA-256 检查为“不适用”，而不是静默跳过。
 
-### 兼容性
+### 行为兼容性说明
 
-- Python 3.10 或更高版本；
-- Git；
-- 支持本地 Skills 的 Codex；
-- GitHub CLI 仅用于实际 GitHub 发布操作。
+- 现有仓库只要任一可达提交或附注标签含非合规邮箱，就会被新门禁阻断；修复历史前不得公开。
+- 从 Private 转为 Public 始终需要最后一次明确决定，不会与仓库创建或首次推送合并执行。
+
+### 验证
+
+- Skill 结构与元数据检查通过。
+- 6 项标准库单元测试通过。
+- 当前仓库预检通过。
+- Markdown 相对链接与 `git diff --check` 检查通过。
+- 发布前验证最终提交的 Author、Committer 与附注标签 Tagger 均为 GitHub ID 型 `noreply`。
+- 本版本不上传用户提供的 Release 资产；SHA-256 资产门禁记录为不适用。
 
 ### 已知限制
 
 - 模式匹配不能替代领域专属安全审查。
-- 图片、压缩包、加密内容、专有二进制格式和跨变量组合的敏感信息需要额外检查。
-- 本 Skill 不提供 GitHub 身份或权限，也不会绕过发布授权。
+- 图片、压缩包、加密内容、专有二进制格式和跨变量组合的敏感信息仍需要额外检查。
+- Git 历史重写、远端替换、标签或 Release 替换属于高影响操作，必须单独确认。
 
 ### 安装
 
-将 `github-project-publisher` 目录复制到 `C:\Users\username\.codex\skills`，然后在 Codex 中使用：
+将 `github-project-publisher` 目录复制到 `C:\Users\username\.codex\skills`，然后在 Codex 中调用：
 
 ```text
-$github-project-publisher 检查当前项目并准备 GitHub 发布。
+$github-project-publisher 检查当前项目，修复可安全处理的问题并准备 GitHub 发布。
 ```
 
 ---
 
 ## English Release Notes
 
-This is the first public release of GitHub Project Publisher, a Codex skill that turns pre-publication review, documentation, commit preparation, and GitHub verification into an auditable workflow.
+v0.2.0 makes GitHub publication privacy-first: new repositories begin private, publication is verified before exposure, and changing visibility to public is a separate gated decision. It also adds Git identity-metadata controls and Release asset integrity verification.
 
-### Highlights
+### Added
 
-- Provides audit-only, local preparation, repository publication, and Release publication modes.
-- Includes a dependency-free Python preflight scanner with text and JSON output.
-- Reviews repository state, README, `.gitignore`, license status, file sizes, generated paths, and remote configuration.
-- Blocks on potential API keys, access tokens, passwords, private keys, sessions/cookies, credential-bearing URLs, personal information, and payment credentials.
-- Reviews logs, HAR files, traces, dumps, crash reports, and source logging calls that may expose sensitive fields.
-- Includes evidence-based guidance for README and Release Notes.
-- Includes Conventional Commits, version-consistency checks, and a safe GitHub publishing runbook.
+- New repositories must be created Private. Upload, review, and fresh-clone verification occur before a separate decision to make the repository Public.
+- A conversational decision policy: structured choices are reserved for optional, ambiguous, or destructive decisions; mandatory checks run automatically and report their results.
+- GitHub ID-based `noreply` email enforcement for repository configuration, Author and Committer fields in every reachable commit, and Tagger fields in annotated tags.
+- `release_integrity.py` computes each local Release asset's SHA-256 digest and compares it with the digest returned by the GitHub Releases API.
+- Standard-library unit tests covering identity gates and Release asset integrity behavior.
 
-### Security behavior
+### Changed
 
-When sensitive data is detected, the preflight reports only the category and `path:line`; it never prints the matched value. Exit code `1` indicates blockers, while exit code `2` indicates an incomplete scan. Both stop commit, push, tag, and Release operations.
+- GitHub CLI and Git are the preferred publication tools. Browser automation is a fallback only for interactive authentication or capabilities the CLI does not provide.
+- A fresh clone from the private remote is required before public visibility, followed by history, tag, documentation, and applicable test verification.
+- A real email address or any identity that is not a GitHub ID-based `noreply` address is now a blocking preflight finding.
+- Releases with no user-provided assets explicitly report SHA-256 verification as “not applicable” instead of silently skipping it.
 
-### Compatibility
+### Behavioral compatibility
 
-- Python 3.10 or later;
-- Git;
-- a Codex surface with local skill support;
-- GitHub CLI only for actual GitHub publication.
+- Existing repositories are blocked if any reachable commit or annotated tag contains a noncompliant email identity. The history must be remediated before publication.
+- Private-to-Public conversion always requires a final explicit decision; it is never bundled with repository creation or the initial push.
+
+### Verification
+
+- Skill structure and metadata checks pass.
+- All six standard-library unit tests pass.
+- The repository preflight passes.
+- Markdown relative-link validation and `git diff --check` pass.
+- The final Author, Committer, and annotated-tag Tagger identities are verified as GitHub ID-based `noreply` addresses before publication.
+- This release has no user-supplied Release assets; the SHA-256 asset gate is recorded as not applicable.
 
 ### Known limitations
 
 - Pattern matching does not replace domain-specific security review.
-- Images, archives, encrypted content, proprietary binary formats, and values assembled across variables require additional inspection.
-- The skill does not provide GitHub identity or permission and never bypasses publication authorization.
+- Images, archives, encrypted content, proprietary binary formats, and values assembled across variables still require additional inspection.
+- History rewrites, remote replacement, and tag or Release replacement are high-impact operations that require separate confirmation.
 
 ### Installation
 
-Copy `github-project-publisher` into `C:\Users\username\.codex\skills`, then invoke:
+Copy `github-project-publisher` to `C:\Users\username\.codex\skills`, then invoke:
 
 ```text
-$github-project-publisher Audit this project and prepare it for GitHub publication.
+$github-project-publisher Audit this project, safely fix eligible issues, and prepare it for GitHub publication.
 ```

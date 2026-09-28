@@ -66,6 +66,7 @@ SECRET_PATTERNS = (
     )),
 )
 EMAIL_PATTERN = re.compile(r"(?<![\w.+-])[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}(?![\w.-])", re.IGNORECASE)
+ID_NOREPLY_PATTERN = re.compile(r"^[0-9]+\+[A-Z0-9-]+@users\.noreply\.github\.com$", re.IGNORECASE)
 PHONE_CONTEXT_PATTERN = re.compile(
     r"(?i)(?:phone|mobile|telephone|tel|手机号|手机|电话)\s*[:=：]\s*\+?[0-9][0-9() .-]{6,18}[0-9]"
 )
@@ -89,6 +90,81 @@ def git(root: Path, *args: str) -> tuple[int, str]:
         text=True, encoding="utf-8", errors="replace", check=False,
     )
     return proc.returncode, proc.stdout.strip()
+
+
+def is_id_noreply(value: str) -> bool:
+    return bool(ID_NOREPLY_PATTERN.fullmatch(value.strip().strip("<>")))
+
+
+def scan_git_identities(root: Path, findings: list[Finding], metadata: dict[str, object]) -> None:
+    code, configured_email = git(root, "config", "--local", "--get", "user.email")
+    metadata["local_noreply_configured"] = code == 0 and is_id_noreply(configured_email)
+    if code != 0 or not configured_email:
+        findings.append(Finding(
+            "blocker", "git-email-not-configured",
+            "Repository-local Git email is missing; configure the authenticated account's ID-based GitHub noreply address.",
+            "git-config:user.email",
+        ))
+    elif not is_id_noreply(configured_email):
+        findings.append(Finding(
+            "blocker", "git-email-not-noreply",
+            "Repository-local Git email is not an ID-based GitHub noreply address; value intentionally redacted.",
+            "git-config:user.email",
+        ))
+
+    code, history = git(root, "log", "--all", "--format=%H%x09%ae%x09%ce")
+    if code != 0:
+        findings.append(Finding("blocker", "git-identity-scan-failed", "Commit identity metadata could not be inspected."))
+    commit_count = 0
+    if code == 0:
+        for row in history.splitlines():
+            if not row:
+                continue
+            parts = row.split("\t")
+            if len(parts) != 3:
+                findings.append(Finding("blocker", "git-identity-scan-incomplete", "Unexpected commit identity metadata format."))
+                continue
+            commit_count += 1
+            sha, author_email, committer_email = parts
+            if not is_id_noreply(author_email):
+                findings.append(Finding(
+                    "blocker", "commit-author-email-not-noreply",
+                    "Commit Author email is not an ID-based GitHub noreply address; value intentionally redacted.",
+                    f"commit:{sha}",
+                ))
+            if not is_id_noreply(committer_email):
+                findings.append(Finding(
+                    "blocker", "commit-committer-email-not-noreply",
+                    "Commit Committer email is not an ID-based GitHub noreply address; value intentionally redacted.",
+                    f"commit:{sha}",
+                ))
+    metadata["commit_identity_count"] = commit_count
+
+    code, tags = git(
+        root, "for-each-ref", "--format=%(refname)%09%(objecttype)%09%(taggeremail)", "refs/tags",
+    )
+    if code != 0:
+        findings.append(Finding("blocker", "git-tag-identity-scan-failed", "Tag identity metadata could not be inspected."))
+        return
+    annotated_count = 0
+    for row in tags.splitlines():
+        if not row:
+            continue
+        parts = row.split("\t")
+        if len(parts) != 3:
+            findings.append(Finding("blocker", "git-tag-identity-scan-incomplete", "Unexpected Tag identity metadata format."))
+            continue
+        refname, object_type, tagger_email = parts
+        if object_type != "tag":
+            continue
+        annotated_count += 1
+        if not is_id_noreply(tagger_email):
+            findings.append(Finding(
+                "blocker", "tagger-email-not-noreply",
+                "Annotated Tag tagger email is not an ID-based GitHub noreply address; value intentionally redacted.",
+                refname,
+            ))
+    metadata["annotated_tag_identity_count"] = annotated_count
 
 
 def candidate_files(root: Path, is_git: bool) -> list[Path]:
@@ -262,6 +338,7 @@ def inspect_repository(root: Path) -> tuple[dict[str, object], list[Finding]]:
             findings.append(Finding("blocker", "git-remote-check-failed", "Git remotes could not be inspected."))
         elif not remotes:
             findings.append(Finding("advisory", "no-remote", "No Git remote is configured."))
+        scan_git_identities(root, findings, metadata)
 
     files = candidate_files(root, is_git)
     metadata["candidate_file_count"] = len(files)

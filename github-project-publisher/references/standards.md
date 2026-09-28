@@ -5,6 +5,7 @@ Use RFC-style terms deliberately: **MUST** is a release blocker, **SHOULD** requ
 ## A. Provenance and scope
 
 - MUST identify the repository root, current branch, exact candidate commit, worktree state, remote URL, and intended visibility.
+- MUST create a new GitHub destination as private, upload and verify it privately, and keep public conversion as a distinct final decision.
 - MUST preserve unrelated user changes and review tracked, untracked, ignored, and generated material according to disclosure risk.
 - MUST NOT publish material whose authorship, license, privacy status, or redistribution right is unresolved.
 - SHOULD make generated files reproducible from a documented source and toolchain; otherwise label their provenance.
@@ -16,6 +17,8 @@ Use RFC-style terms deliberately: **MUST** is a release blocker, **SHOULD** requ
 - MUST treat an exposed real credential as compromised: revoke or rotate it. Deleting only the working-tree line is insufficient if it exists in a commit.
 - MUST NOT display a sensitive value or matching source line while reporting it. Report category and `path:line` only.
 - MUST block commit, push, tag, Release, and public-visibility changes when a sensitive-data blocker exists or when the required scan fails, is interrupted, skips a relevant file, or cannot read it.
+- MUST use the authenticated GitHub account's ID-based noreply address for both Author and Committer on commits created by the workflow.
+- MUST inspect Author and Committer email metadata for every reachable publication commit and the tagger email of every annotated publication Tag. Any address outside the approved noreply identity is a privacy blocker; reports must identify only the SHA/ref and role.
 - MUST require explicit human disposition for a suspected false positive; automated bypass or allowlisting is not acceptable during the same publication run.
 - SHOULD maintain an effective `.gitignore`; public or security-relevant projects SHOULD document vulnerability reporting in `SECURITY.md`.
 - SHOULD enable applicable GitHub protections after publication: secret scanning/push protection, dependency alerts, code scanning, and protected branches or rulesets.
@@ -26,6 +29,7 @@ Use RFC-style terms deliberately: **MUST** is a release blocker, **SHOULD** requ
 - MUST keep individual Git objects within GitHub's current file limits; use Git LFS only when large binaries genuinely belong under version control.
 - MUST avoid broken links, case-only path ambiguity, invalid filenames for supported platforms, and undocumented submodules or LFS requirements.
 - SHOULD use coherent, reviewable commits and a stable default branch.
+- MUST verify a fresh clone of a new private destination before offering public conversion; the clone must contain only intended reachable objects and refs.
 
 ## D. Functional verification
 
@@ -47,9 +51,18 @@ Use RFC-style terms deliberately: **MUST** is a release blocker, **SHOULD** requ
 - MUST make the release tag resolve to the intended tested commit.
 - MUST align the tag, package metadata, changelog, documentation, and release title.
 - MUST NOT move or reuse a published version. Issue a new corrective version.
+- MUST calculate SHA-256 for every user-supplied Release asset and compare it with GitHub's post-upload asset digest before publication. A missing asset, missing digest, mismatch, or incomplete comparison is a blocker.
+- MUST report the asset-integrity gate as not applicable when no user-supplied Release assets exist; GitHub-generated source archives are outside this gate.
 - SHOULD use Semantic Versioning only when the project declares a public API whose compatibility can be assessed. Otherwise document the actual versioning policy.
 - SHOULD distinguish stable, pre-release, experimental, archived, and unsupported states visibly.
-- SHOULD provide checksums or signatures for distributed binary assets when users rely on artifact integrity.
+- SHOULD additionally publish a checksum manifest or provenance attestation when users rely on artifact integrity.
+
+## G. Interaction and tooling
+
+- MUST ask for choices that change rights, destructive impact, release state, destination identity, or final public visibility. Use a structured choice/card when supported.
+- MUST NOT ask whether to perform deterministic safety work such as scans, noreply verification, SHA comparison, exact-ref verification, or fresh-clone validation; run it and report the result.
+- MUST stop rather than offer a bypass when a mandatory gate fails.
+- MUST prefer non-interactive `gh` and `git` operations. Browser automation is a fallback only for interactive authentication or a capability unavailable through the CLI.
 
 ## Evidence levels
 
@@ -68,6 +81,11 @@ Use the strongest available source, in this order:
 - [GitHub: About READMEs](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes)
 - [GitHub: About releases](https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases)
 - [GitHub: Push protection](https://docs.github.com/en/code-security/concepts/secret-security/push-protection)
+- [GitHub: Email addresses reference](https://docs.github.com/en/account-and-profile/reference/email-addresses-reference)
+- [GitHub: Setting repository visibility](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/setting-repository-visibility)
+- [GitHub: REST API endpoints for release assets](https://docs.github.com/en/rest/releases/assets)
+- [GitHub CLI: `gh repo create`](https://cli.github.com/manual/gh_repo_create)
+- [GitHub CLI: `gh repo edit`](https://cli.github.com/manual/gh_repo_edit)
 - [Semantic Versioning 2.0.0](https://semver.org/)
 - [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/)
 - [SPDX License List](https://spdx.org/licenses/)
