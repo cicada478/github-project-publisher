@@ -241,6 +241,12 @@ def scan_git_identities(
         if not row:
             continue
         parts = row.split("\t")
+        # GitHub Actions can materialize the checked-out tag ref as a
+        # lightweight ref to the workflow's commit. Because git() removes
+        # trailing whitespace, its empty tagger field leaves two columns.
+        # Lightweight tags have no Tagger identity to validate.
+        if len(parts) == 2 and parts[1] != "tag":
+            continue
         if len(parts) != 3:
             findings.append(Finding("blocker", "git-tag-identity-scan-incomplete", "Unexpected Tag identity metadata format."))
             continue

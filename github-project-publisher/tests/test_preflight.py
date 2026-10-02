@@ -97,6 +97,14 @@ class PreflightIdentityTests(unittest.TestCase):
             _, findings = preflight.inspect_repository(root, approved_noreply=NOREPLY)
             self.assertIn("tagger-email-not-approved", {item.code for item in findings})
 
+    def test_lightweight_tag_without_tagger_is_not_malformed(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_repository(root, NOREPLY)
+            run_git(root, "tag", "v1.0.0")
+            _, findings = preflight.inspect_repository(root, approved_noreply=NOREPLY)
+            self.assertNotIn("git-tag-identity-scan-incomplete", {item.code for item in findings})
+
 
 class HistoricalContentTests(unittest.TestCase):
     def test_secret_removed_from_worktree_still_blocks_from_history(self) -> None:

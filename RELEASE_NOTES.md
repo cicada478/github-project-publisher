@@ -1,24 +1,24 @@
-# GitHub Project Publisher v0.3.0
+# GitHub Project Publisher v0.3.1
 
 发布类型：`稳定版 / Stable`
 
 发布日期：`2026-10-02`
 
-版本：`v0.3.0`
+版本：`v0.3.1`
 
 目标分支：`main`
 
-目标提交：由附注标签 `v0.3.0` 固定。
+目标提交：由附注标签 `v0.3.1` 固定。
 
 ## Release 标题
 
 ```text
-v0.3.0 — Verifiable privacy and interaction gates
+v0.3.1 — Verifiable privacy and interaction gates
 ```
 
 ## 中文 Release Notes
 
-v0.3.0 将原有“规范驱动”的发布流程补强为可自动验证的安全门禁：敏感信息检查现在覆盖可达 Git 历史，noreply 身份必须属于当前 GitHub 账户，结构化选项卡同时受语义条件和宿主运行能力约束，并新增行为 eval 与持续集成。
+v0.3.1 将原有“规范驱动”的发布流程补强为可自动验证的安全门禁：敏感信息检查现在覆盖可达 Git 历史，noreply 身份必须属于当前 GitHub 账户，结构化选项卡同时受语义条件和宿主运行能力约束，并新增行为 eval 与持续集成。本补丁版同时修复 GitHub Actions 标签事件中轻量标签引用被误判为 Tagger 元数据损坏的问题。
 
 ### 新增
 
@@ -51,10 +51,11 @@ v0.3.0 将原有“规范驱动”的发布流程补强为可自动验证的安�
 - 个人邮箱模式仍只允许明确选择的仓库级邮箱，以及属于已核验账户的 noreply 地址。
 - 历史扫描会增加大型仓库的预检时间；二进制、图片、压缩包、加密内容和专有格式仍需领域工具或人工复核。
 - 选项卡是否可显示仍取决于 Codex 宿主、当前模式、版本和账户能力；Skill 只能在工具可用时调用，不能自行注入界面控件。
+- GitHub Actions 标签事件可能把当前标签检出为无 Tagger 的轻量引用；预检现在正确跳过其 Tagger 检查，同时继续严格检查真正的附注标签。
 
 ### 验证
 
-- 15 项 Python 标准库单元测试通过。
+- 16 项 Python 标准库单元测试通过。
 - 10 个行为 eval 场景的结构与覆盖校验通过。
 - Skill 元数据、UI 配置与本地 Markdown 相对链接检查通过。
 - `git diff --check` 通过。
@@ -74,7 +75,7 @@ $github-project-publisher 检查当前项目，完善 README 和 Release 文案�
 
 ## English Release Notes
 
-v0.3.0 turns the existing policy-driven publication workflow into a more verifiable safety gate. Sensitive-data review now covers reachable Git history, noreply identities must belong to the current GitHub account, structured choices are constrained by both decision semantics and runtime capability, and the project now includes behavioral evals and continuous integration.
+v0.3.1 turns the existing policy-driven publication workflow into a more verifiable safety gate. Sensitive-data review now covers reachable Git history, noreply identities must belong to the current GitHub account, structured choices are constrained by both decision semantics and runtime capability, and the project now includes behavioral evals and continuous integration. This patch also fixes a false malformed-Tagger finding when GitHub Actions exposes a tag-event checkout as a lightweight tag ref.
 
 ### Added
 
@@ -107,10 +108,11 @@ v0.3.0 turns the existing policy-driven publication workflow into a more verifia
 - Personal-email mode permits only the explicitly selected repository-local address and the verified account's noreply identity.
 - Historical scanning can increase preflight time for large repositories. Binaries, images, archives, encrypted content, and proprietary formats still require manual or domain-specific review.
 - Card rendering remains dependent on the Codex host, current mode, version, and account capabilities. The Skill can call an available tool but cannot inject unavailable UI controls.
+- GitHub Actions may expose the current tag-event ref as a lightweight tag without Tagger metadata. Preflight now skips Tagger validation for that ref while continuing to validate genuine annotated tags strictly.
 
 ### Verification
 
-- All 15 Python standard-library unit tests pass.
+- All 16 Python standard-library unit tests pass.
 - The ten-case behavior eval corpus passes structure and coverage validation.
 - Skill metadata, UI configuration, and local Markdown link checks pass.
 - `git diff --check` passes.

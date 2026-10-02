@@ -6,7 +6,7 @@ A Codex skill for disciplined GitHub project publication. It applies an auditabl
 
 ## Project status
 
-This repository contains the GitHub Project Publisher skill source. The current version is [`v0.3.0`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.3.0); see [RELEASE_NOTES.md](RELEASE_NOTES.md) for details.
+This repository contains the GitHub Project Publisher skill source. The current version is [`v0.3.1`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.3.1); see [RELEASE_NOTES.md](RELEASE_NOTES.md) for details.
 
 ## Capabilities
 
