@@ -1,113 +1,127 @@
-# GitHub Project Publisher v0.2.0
+# GitHub Project Publisher v0.3.0
 
 发布类型：`稳定版 / Stable`
 
-发布日期：`2026-09-28`
+发布日期：`2026-10-02`
 
-版本：`v0.2.0`
+版本：`v0.3.0`
 
 目标分支：`main`
 
-目标提交：由附注标签 `v0.2.0` 固定。
+目标提交：由附注标签 `v0.3.0` 固定。
 
 ## Release 标题
 
 ```text
-v0.2.0 — Privacy-first publishing gates
+v0.3.0 — Verifiable privacy and interaction gates
 ```
 
 ## 中文 Release Notes
 
-v0.2.0 将 GitHub 发布流程升级为“隐私优先、私有仓库先行、公开前独立放行”的强制门禁，并补齐 Git 身份元数据与 Release 资产完整性检查。
+v0.3.0 将原有“规范驱动”的发布流程补强为可自动验证的安全门禁：敏感信息检查现在覆盖可达 Git 历史，noreply 身份必须属于当前 GitHub 账户，结构化选项卡同时受语义条件和宿主运行能力约束，并新增行为 eval 与持续集成。
 
 ### 新增
 
-- 新仓库必须先创建为 Private，在私有状态完成上传、敏感信息审查和全新克隆验证，避免未经审查的凭证、个人信息或其他敏感内容直接暴露；全部通过后，才单独询问是否转为 Public。
-- 新增对话决策规范：仅对可选、歧义或破坏性事项使用结构化选项；强制检查自动执行并报告结果。
-- 强制使用 GitHub ID 型 `noreply` 邮箱，并检查仓库配置、全部可达提交的 Author/Committer，以及附注标签的 Tagger 身份。
-- 新增 `release_integrity.py`，计算本地 Release 资产 SHA-256，并与 GitHub Release API 返回的远端摘要逐项比对。
-- 新增标准库单元测试，覆盖身份门禁和 Release 资产完整性检查。
+- 自动枚举并扫描全部可达 Git 历史文本 Blob。即使敏感值已经从当前工作树删除，只要仍存在于可达历史中，就会阻止提交和发布。
+- 通过 `gh api user` 核验 GitHub ID 型 noreply 地址的账户归属；仅满足地址格式但属于其他账户的身份不再通过。
+- 为无网络 CI 增加可信账户参数 `--expected-github-id` 与 `--expected-github-login`，并支持通过 `--gh` 指定 GitHub CLI 路径。
+- 新增 10 个 Skill 行为 eval 场景，覆盖直接与隐式触发、负向触发、不完整输入、结构化选项、二元确认、自由文本、宿主权限、自动检查和阻断行为。
+- 新增结构化 eval 结果 Schema 和可选的 `codex exec` 只读行为测试执行器。
+- 新增 GitHub Actions：普通 push/PR 执行确定性测试和语料校验；手动工作流可在显式启用并配置凭证后运行真实 Codex 行为 eval。
+- 新增 Skill 元数据、UI 配置和 Markdown 相对链接测试。
 
 ### 变更
 
-- GitHub CLI 与 Git 成为发布操作的首选工具；浏览器自动化仅用于交互式认证或 CLI 确实不支持的操作。
-- Public 转换前必须从远端执行全新克隆，并在克隆副本中复核历史、标签、文档和必要测试。
-- 预检发现真实邮箱或非 GitHub ID 型 `noreply` 身份时，将作为阻断项停止提交、推送、标签、Release 或公开操作。
-- Release 无用户资产时明确报告 SHA-256 检查为“不适用”，而不是静默跳过。
+- 选项卡规则改为双重门禁：只有存在尚未解决的实质决策时才满足语义门禁；只有当前回合真实提供 `request_user_input` 或等价工具时才满足运行时门禁。
+- 当 `request_user_input` 可用且决策条件满足时，Skill 必须调用该工具，不得用 Markdown 模拟卡片；工具不可用时必须停在变更边界，且不得声称 Skill 能自行开启 Plan 模式。
+- Git 身份策略允许用户在结构化决策后选择个人邮箱，但会警告其永久暴露在公开 Git 元数据中；未获批准的其他身份仍然阻断。
+- 预检增加历史 Blob 数量、已扫描历史文本数量和 GitHub 账户验证状态等机器可读元数据。
+- `.tmp`、本地行为 eval 输出及其他测试残留被排除在发布集合之外。
+- README 中英文版补充运行模式、选项卡条件、历史扫描、账户核验、行为 eval 和 CI 使用说明。
 
-### 行为兼容性说明
+### 安全性
 
-- 现有仓库只要任一可达提交或附注标签含非合规邮箱，就会被新门禁阻断；修复历史前不得公开。
-- 从 Private 转为 Public 始终需要最后一次明确决定，不会与仓库创建或首次推送合并执行。
+- 删除当前文件不再被视为清除历史泄露；可达历史中的高置信敏感模式会以完全脱敏的位置报告阻断发布。
+- 任一历史对象无法枚举、读取或完成必要扫描时，流程按检查失败处理并阻断发布。
+- noreply 验证从“格式正确”提升为“格式正确且与已认证账户 ID/登录名一致”。
+
+### 兼容性说明
+
+- 默认 noreply 策略现在会阻断属于其他 GitHub 账户的 noreply Author、Committer 或附注 Tag Tagger；这是更严格的身份归属检查。
+- 个人邮箱模式仍只允许明确选择的仓库级邮箱，以及属于已核验账户的 noreply 地址。
+- 历史扫描会增加大型仓库的预检时间；二进制、图片、压缩包、加密内容和专有格式仍需领域工具或人工复核。
+- 选项卡是否可显示仍取决于 Codex 宿主、当前模式、版本和账户能力；Skill 只能在工具可用时调用，不能自行注入界面控件。
 
 ### 验证
 
-- Skill 结构与元数据检查通过。
-- 7 项标准库单元测试通过。
-- 当前仓库预检通过。
-- Markdown 相对链接与 `git diff --check` 检查通过。
-- 发布前验证最终提交的 Author、Committer 与附注标签 Tagger 均为 GitHub ID 型 `noreply`。
+- 15 项 Python 标准库单元测试通过。
+- 10 个行为 eval 场景的结构与覆盖校验通过。
+- Skill 元数据、UI 配置与本地 Markdown 相对链接检查通过。
+- `git diff --check` 通过。
+- 干净临时仓库严格预检通过：0 个 blocker、0 个 warning。
+- 当前仓库的可达提交 Author/Committer、附注 Tag Tagger 与 GitHub 认证账户归属检查通过。
 - 本版本不上传用户提供的 Release 资产；SHA-256 资产门禁记录为不适用。
 
-### 已知限制
+### 安装或升级
 
-- 模式匹配不能替代领域专属安全审查。
-- 图片、压缩包、加密内容、专有二进制格式和跨变量组合的敏感信息仍需要额外检查。
-- Git 历史重写、远端替换、标签或 Release 替换属于高影响操作，必须单独确认。
-
-### 安装
-
-将 `github-project-publisher` 目录复制到 `C:\Users\username\.codex\skills`，然后在 Codex 中调用：
+将 `github-project-publisher` 目录复制到项目级或用户级 `.codex\skills` 目录，覆盖旧版本后重新打开任务或重启 Codex。
 
 ```text
-$github-project-publisher 检查当前项目，修复可安全处理的问题并准备 GitHub 发布。
+$github-project-publisher 检查当前项目，完善 README 和 Release 文案，并准备发布到 GitHub。
 ```
 
 ---
 
 ## English Release Notes
 
-v0.2.0 makes GitHub publication privacy-first: new repositories begin private, publication is verified before exposure, and changing visibility to public is a separate gated decision. It also adds Git identity-metadata controls and Release asset integrity verification.
+v0.3.0 turns the existing policy-driven publication workflow into a more verifiable safety gate. Sensitive-data review now covers reachable Git history, noreply identities must belong to the current GitHub account, structured choices are constrained by both decision semantics and runtime capability, and the project now includes behavioral evals and continuous integration.
 
 ### Added
 
-- New repositories must be created Private so upload, sensitive-data review, and fresh-clone verification can finish before exposure, preventing unreviewed credentials, personal information, or other sensitive content from becoming public. Only after all checks pass is public conversion offered as a separate decision.
-- A conversational decision policy: structured choices are reserved for optional, ambiguous, or destructive decisions; mandatory checks run automatically and report their results.
-- GitHub ID-based `noreply` email enforcement for repository configuration, Author and Committer fields in every reachable commit, and Tagger fields in annotated tags.
-- `release_integrity.py` computes each local Release asset's SHA-256 digest and compares it with the digest returned by the GitHub Releases API.
-- Standard-library unit tests covering identity gates and Release asset integrity behavior.
+- Automatic enumeration and scanning of every reachable historical text blob. A sensitive value removed from the working tree still blocks publication while it remains in reachable history.
+- GitHub account ownership verification for ID-based noreply addresses through `gh api user`; a syntactically valid address owned by another account no longer passes.
+- Trusted CI parameters `--expected-github-id` and `--expected-github-login`, plus `--gh` for an explicit GitHub CLI path.
+- Ten behavioral eval cases covering direct and implicit activation, negative activation, incomplete input, structured choices, binary confirmation, free-form input, host permission, automatic checks, and blocker behavior.
+- A structured eval result schema and an optional read-only `codex exec` behavior runner.
+- GitHub Actions for deterministic push/PR checks, with opt-in authenticated live Codex evals available through manual dispatch.
+- Tests for Skill metadata, UI configuration, and local Markdown links.
 
 ### Changed
 
-- GitHub CLI and Git are the preferred publication tools. Browser automation is a fallback only for interactive authentication or capabilities the CLI does not provide.
-- A fresh clone from the private remote is required before public visibility, followed by history, tag, documentation, and applicable test verification.
-- A real email address or any identity that is not a GitHub ID-based `noreply` address is now a blocking preflight finding.
-- Releases with no user-provided assets explicitly report SHA-256 verification as “not applicable” instead of silently skipping it.
+- Option cards now use two gates: an unresolved consequential choice must pass the semantic gate, and `request_user_input` or an equivalent tool must actually be available for the runtime gate.
+- When structured input is available and the decision test passes, the Skill must call it instead of imitating a card in Markdown. When unavailable, the workflow stops before mutation and does not claim that the Skill can enable Plan mode.
+- Git identity may use a personal email only after a structured choice and durable-public-metadata warning; other unapproved identities remain blockers.
+- Machine-readable preflight metadata now records historical blob coverage and GitHub account verification state.
+- Temporary files, local eval artifacts, and test residue are excluded from the publication set.
+- Both READMEs now document runtime interaction constraints, history scanning, account verification, behavior evals, and CI.
 
-### Behavioral compatibility
+### Security
 
-- Existing repositories are blocked if any reachable commit or annotated tag contains a noncompliant email identity. The history must be remediated before publication.
-- Private-to-Public conversion always requires a final explicit decision; it is never bundled with repository creation or the initial push.
+- Removing a value from the current file no longer counts as remediating historical exposure; high-confidence matches in reachable history block publication with fully redacted location-only reporting.
+- Failure to enumerate, read, or complete required scanning of a historical object blocks publication.
+- Noreply verification now requires both valid syntax and an account ID/login match.
+
+### Compatibility
+
+- The default noreply policy now blocks Author, Committer, or annotated Tag tagger identities owned by another GitHub account, even when their noreply syntax is valid.
+- Personal-email mode permits only the explicitly selected repository-local address and the verified account's noreply identity.
+- Historical scanning can increase preflight time for large repositories. Binaries, images, archives, encrypted content, and proprietary formats still require manual or domain-specific review.
+- Card rendering remains dependent on the Codex host, current mode, version, and account capabilities. The Skill can call an available tool but cannot inject unavailable UI controls.
 
 ### Verification
 
-- Skill structure and metadata checks pass.
-- All seven standard-library unit tests pass.
-- The repository preflight passes.
-- Markdown relative-link validation and `git diff --check` pass.
-- The final Author, Committer, and annotated-tag Tagger identities are verified as GitHub ID-based `noreply` addresses before publication.
+- All 15 Python standard-library unit tests pass.
+- The ten-case behavior eval corpus passes structure and coverage validation.
+- Skill metadata, UI configuration, and local Markdown link checks pass.
+- `git diff --check` passes.
+- Strict preflight passes in a clean temporary repository with zero blockers and zero warnings.
+- Reachable commit Author/Committer identities, annotated Tag taggers, and GitHub account ownership checks pass.
 - This release has no user-supplied Release assets; the SHA-256 asset gate is recorded as not applicable.
 
-### Known limitations
+### Install or upgrade
 
-- Pattern matching does not replace domain-specific security review.
-- Images, archives, encrypted content, proprietary binary formats, and values assembled across variables still require additional inspection.
-- History rewrites, remote replacement, and tag or Release replacement are high-impact operations that require separate confirmation.
-
-### Installation
-
-Copy `github-project-publisher` to `C:\Users\username\.codex\skills`, then invoke:
+Copy the `github-project-publisher` directory into a project- or user-scoped `.codex\skills` directory, replacing the previous version, then reopen the task or restart Codex.
 
 ```text
-$github-project-publisher Audit this project, safely fix eligible issues, and prepare it for GitHub publication.
+$github-project-publisher Audit this project, draft the README and Release text, and prepare it for GitHub publication.
 ```

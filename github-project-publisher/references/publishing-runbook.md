@@ -26,7 +26,12 @@ git ls-remote https://github.com/OWNER/REPO.git
 
 Stop if identity, ownership, visibility, or history differs from the user's intent.
 
-Derive the ID-based noreply address from the authenticated account and configure it locally before creating a commit. Do not use a user-supplied numeric ID without checking `gh api user`:
+Before the first publication commit, reuse an established repository policy or ask once with a structured identity choice:
+
+- **GitHub ID-based noreply (Recommended):** protects the account's personal address.
+- **Configured personal email:** permitted only after warning that Git Author, Committer, and Tagger metadata is public, durable, cloned, and mirrored.
+
+For noreply, derive the address from the authenticated account and configure it locally. Do not use a user-supplied numeric ID without checking `gh api user`:
 
 ```sh
 ACCOUNT_ID="$(gh api user --jq .id)"
@@ -36,9 +41,11 @@ git config --local user.name "$ACCOUNT_LOGIN"
 git config --local user.email "$NOREPLY_EMAIL"
 ```
 
+For an explicitly approved personal address, configure the exact selected address at repository scope and use `preflight.py --identity-policy configured`. Never discover, display, or substitute an address from unrelated history.
+
 ## 2. Final local gate
 
-Review `git diff`, `git diff --cached`, `git status --short`, candidate file sizes, and preflight output. Require the preflight process to exit with code 0. Any sensitive-data, Author, Committer, tagger, or incomplete-scan finding stops commit and publication. Run project checks. Stage named files only and inspect the staged diff again. A clean, already-committed tree needs no synthetic commit.
+Review `git diff`, `git diff --cached`, `git status --short`, candidate file sizes, and preflight output under the selected identity policy. Require the current-file scan, reachable-history blob scan, and authenticated-account identity match to complete with exit code 0. Any sensitive-data, unapproved Author, Committer, tagger, or incomplete-scan finding stops commit and publication. Run project checks. Stage named files only and inspect the staged diff again. A clean, already-committed tree needs no synthetic commit.
 
 Use the profile in [commit-conventions.md](commit-conventions.md) unless the repository defines its own convention. Validate the message against the staged diff before committing. Do not amend, squash, or rewrite user commits unless explicitly requested.
 

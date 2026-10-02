@@ -17,6 +17,7 @@ import release_integrity  # noqa: E402
 
 
 NOREPLY = "12345678+example-user@users.noreply.github.com"
+OTHER_NOREPLY = "87654321+other-user@users.noreply.github.com"
 
 
 def run_git(root: Path, *args: str) -> None:
@@ -40,7 +41,7 @@ class PreflightIdentityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             make_repository(root, NOREPLY)
-            _, findings = preflight.inspect_repository(root)
+            _, findings = preflight.inspect_repository(root, approved_noreply=NOREPLY)
             identity_codes = {item.code for item in findings if "email" in item.code}
             self.assertEqual(identity_codes, set())
 
@@ -48,11 +49,43 @@ class PreflightIdentityTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             make_repository(root, "developer@example.com")
-            _, findings = preflight.inspect_repository(root)
+            _, findings = preflight.inspect_repository(root, approved_noreply=NOREPLY)
             codes = {item.code for item in findings}
             self.assertIn("git-email-not-noreply", codes)
-            self.assertIn("commit-author-email-not-noreply", codes)
-            self.assertIn("commit-committer-email-not-noreply", codes)
+            self.assertIn("commit-author-email-not-approved", codes)
+            self.assertIn("commit-committer-email-not-approved", codes)
+
+    def test_explicit_configured_email_is_allowed_with_warning(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_repository(root, "developer@example.com")
+            _, findings = preflight.inspect_repository(
+                root, identity_policy="configured", approved_noreply=NOREPLY,
+            )
+            self.assertFalse(any(item.severity == "blocker" and "email" in item.code for item in findings))
+            self.assertIn("git-email-public", {item.code for item in findings})
+
+    def test_configured_policy_blocks_a_different_personal_email(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_repository(root, "developer@example.com")
+            run_git(root, "config", "user.email", "other@example.com")
+            _, findings = preflight.inspect_repository(
+                root, identity_policy="configured", approved_noreply=NOREPLY,
+            )
+            codes = {item.code for item in findings if item.severity == "blocker"}
+            self.assertIn("commit-author-email-not-approved", codes)
+            self.assertIn("commit-committer-email-not-approved", codes)
+
+    def test_noreply_for_different_account_is_blocked(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_repository(root, OTHER_NOREPLY)
+            _, findings = preflight.inspect_repository(root, approved_noreply=NOREPLY)
+            codes = {item.code for item in findings if item.severity == "blocker"}
+            self.assertIn("git-email-account-mismatch", codes)
+            self.assertIn("commit-author-email-not-approved", codes)
+            self.assertIn("commit-committer-email-not-approved", codes)
 
     def test_real_annotated_tag_email_is_a_blocker(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -61,8 +94,42 @@ class PreflightIdentityTests(unittest.TestCase):
             run_git(root, "config", "user.email", "tagger@example.com")
             run_git(root, "tag", "-a", "v1.0.0", "-m", "v1.0.0")
             run_git(root, "config", "user.email", NOREPLY)
-            _, findings = preflight.inspect_repository(root)
-            self.assertIn("tagger-email-not-noreply", {item.code for item in findings})
+            _, findings = preflight.inspect_repository(root, approved_noreply=NOREPLY)
+            self.assertIn("tagger-email-not-approved", {item.code for item in findings})
+
+
+class HistoricalContentTests(unittest.TestCase):
+    def test_secret_removed_from_worktree_still_blocks_from_history(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_repository(root, NOREPLY)
+            synthetic_token = "ghp_" + ("A" * 36)
+            (root / "config.txt").write_text(f"token={synthetic_token}\n", encoding="utf-8")
+            run_git(root, "add", "--", "config.txt")
+            run_git(root, "commit", "-m", "test: add historical fixture")
+            (root / "config.txt").write_text("token=REDACTED\n", encoding="utf-8")
+            run_git(root, "add", "--", "config.txt")
+            run_git(root, "commit", "-m", "test: remove historical fixture")
+
+            metadata, findings = preflight.inspect_repository(root, approved_noreply=NOREPLY)
+            history_findings = [item for item in findings if item.code == "history-github-token"]
+            self.assertTrue(history_findings)
+            self.assertTrue(all((item.path or "").startswith("history:") for item in history_findings))
+            self.assertGreater(metadata["historical_text_blob_count"], 0)
+
+    def test_account_resolution_requires_id_and_login_together(self) -> None:
+        resolved, error = preflight.resolve_expected_noreply(None, "12345678", None)
+        self.assertIsNone(resolved)
+        self.assertIsNotNone(error)
+
+    @patch("preflight.shutil.which", return_value="gh")
+    @patch("preflight.subprocess.run")
+    def test_authenticated_account_resolves_expected_noreply(self, run, _which) -> None:
+        run.return_value = subprocess.CompletedProcess([], 0, "12345678\texample-user\n", "")
+        resolved, error = preflight.resolve_expected_noreply(None, None, None)
+        self.assertEqual(resolved, NOREPLY)
+        self.assertIsNone(error)
+        self.assertEqual(run.call_args.args[0][1:3], ["api", "user"])
 
 
 class ReleaseIntegrityTests(unittest.TestCase):

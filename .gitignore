@@ -1,8 +1,12 @@
 # Python
 __pycache__/
 *.py[cod]
+*.tmp
 .venv/
 venv/
+
+# Local behavioral-eval outputs
+evals/artifacts/
 
 # Credentials and local configuration
 .env

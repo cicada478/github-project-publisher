@@ -14,11 +14,14 @@ Use RFC-style terms deliberately: **MUST** is a release blocker, **SHOULD** requ
 
 - MUST find and remove API keys, passwords, credentials, private keys, authentication/session material, personal data, payment credentials, local paths containing sensitive identities, private endpoints, confidential datasets, and diagnostic dumps before publication.
 - MUST inspect both sensitive values already present in publishable log/trace/dump/HAR/crash artifacts and source-code logging sinks that may emit credentials, request headers, cookies, personal records, payment payloads, environment variables, or configuration objects at runtime.
+- MUST complete an automated scan of every reachable historical text blob, including content no longer present in the working tree. Failure to enumerate, read, or scan a relevant historical blob is a blocker.
 - MUST treat an exposed real credential as compromised: revoke or rotate it. Deleting only the working-tree line is insufficient if it exists in a commit.
 - MUST NOT display a sensitive value or matching source line while reporting it. Report category and `path:line` only.
 - MUST block commit, push, tag, Release, and public-visibility changes when a sensitive-data blocker exists or when the required scan fails, is interrupted, skips a relevant file, or cannot read it.
-- MUST use the authenticated GitHub account's ID-based noreply address for both Author and Committer on commits created by the workflow.
-- MUST inspect Author and Committer email metadata for every reachable publication commit and the tagger email of every annotated publication Tag. Any address outside the approved noreply identity is a privacy blocker; reports must identify only the SHA/ref and role.
+- MUST select the commit identity before the first publication commit unless repository policy or the current request already determines it. Offer GitHub ID-based noreply as the recommended privacy-preserving option; a personal email is optional only after an explicit warning that Git metadata is public and durable.
+- MUST use the selected identity for both Author and Committer on commits created by the workflow.
+- MUST inspect Author and Committer email metadata for every reachable publication commit and the tagger email of every annotated publication Tag. Under the personal-email policy, only the exact repository-configured email and ID-based noreply identities are approved; any other address is a privacy blocker. Reports must identify only the SHA/ref and role.
+- MUST verify that every accepted ID-based noreply identity belongs to the authenticated GitHub account, using `gh api user` or an explicitly supplied and independently verified account ID/login pair. Syntax alone is insufficient.
 - MUST require explicit human disposition for a suspected false positive; automated bypass or allowlisting is not acceptable during the same publication run.
 - SHOULD maintain an effective `.gitignore`; public or security-relevant projects SHOULD document vulnerability reporting in `SECURITY.md`.
 - SHOULD enable applicable GitHub protections after publication: secret scanning/push protection, dependency alerts, code scanning, and protected branches or rulesets.
@@ -59,8 +62,12 @@ Use RFC-style terms deliberately: **MUST** is a release blocker, **SHOULD** requ
 
 ## G. Interaction and tooling
 
-- MUST ask for choices that change rights, destructive impact, release state, destination identity, or final public visibility. Use a structured choice/card when supported.
-- MUST NOT ask whether to perform deterministic safety work such as scans, noreply verification, SHA comparison, exact-ref verification, or fresh-clone validation; run it and report the result.
+- MUST ask before an unresolved choice changes rights, destructive impact, privacy exposure, delivery path, release state, commit identity, destination identity, publication scope, or final visibility. When structured input is available, the workflow MUST invoke it and stop before the affected mutation until the user answers.
+- MUST enumerate all evidence-backed material alternatives before adapting them to the interface. Interface limits may require sequential cards or another structured selector, but MUST NOT cause a valid outcome to be omitted or merged deceptively.
+- MUST explain every option's outcome, rationale, material tradeoff, and evidence-based recommendation level. A mandatory safety bypass MUST NOT be offered as an option.
+- MUST NOT ask whether to perform deterministic safety work such as scans, selected-identity verification, SHA comparison, exact-ref verification, or fresh-clone validation; run it and report the result.
+- MUST record automatically applied defaults and already-authorized consequential steps with their basis, scope, outcome, verification evidence, and residual risk; this trace MUST NOT require committing a new repository file unless requested.
+- MUST NOT add redundant workflow confirmations for read-only checks, exact-path staging, non-force push, remote verification, or fresh-clone validation after the user has explicitly requested publication. Unavoidable host/sandbox permission prompts are separate technical controls and SHOULD be consolidated narrowly.
 - MUST stop rather than offer a bypass when a mandatory gate fails.
 - MUST prefer non-interactive `gh` and `git` operations. Browser automation is a fallback only for interactive authentication or a capability unavailable through the CLI.
 

@@ -16,15 +16,15 @@ Produce a repository that is safe to disclose, reproducible to use, accurately d
 
 Infer the narrowest mode that fulfills the request. An explicit request to publish authorizes preparation and private upload, but never a direct public repository creation. Create every new GitHub repository as private, finish upload and verification there, and treat conversion to public as a separate final gate.
 
-Read [references/interaction-policy.md](references/interaction-policy.md) before asking the user anything during preparation or publication. Use a structured choice/card when the surface supports it. Ask only for a material choice or destructive action that cannot be inferred safely; perform mandatory deterministic checks without asking and report their results.
+Read [references/interaction-policy.md](references/interaction-policy.md) before asking the user anything during preparation or publication. Route each interaction among: no question, binary confirmation, structured option card, free-form question, or native host permission. A material unresolved “how/which” decision MUST be asked before crossing its mutation boundary. Inspect the tools available in the current turn: when `request_user_input` or an equivalent structured-input tool is available, MUST call it and MUST NOT imitate a card in prose. The skill cannot enable Plan mode or add unavailable host tools; if structured input is absent, follow the host's narrowest supported interaction and stop before mutation. Enumerate every evidence-backed material alternative before adapting the decision to the surface, and never omit a real option merely to meet a card-size limit. Do not reduce a material choice to approval/rejection, and do not invent alternatives for a genuine “proceed/cancel” checkpoint. Perform mandatory deterministic checks without asking, but record the chosen default, its basis, scope, and result in the publication trace.
 
 ## Establish evidence
 
 1. Read repository instructions and inspect the project tree, Git status, branches, remotes, tags, recent commits, build metadata, CI, ignore rules, and existing community files.
-2. Run `python scripts/preflight.py <repository>` from this skill. A pre-publication run MUST exit with code 0; exit code 1 means blockers were found and exit code 2 means the inspection could not complete. Treat it as a conservative baseline, not a substitute for repository-specific checks.
+2. Run `python scripts/preflight.py <repository>` from this skill. It scans the current publication set and reachable historical blobs, and verifies noreply ownership against the authenticated GitHub account. Use `--gh PATH` when GitHub CLI is not on `PATH`; CI may instead provide both `--expected-github-id` and `--expected-github-login`. A pre-publication run MUST exit with code 0; exit code 1 means blockers were found and exit code 2 means the inspection could not complete. Treat it as a conservative baseline, not a substitute for repository-specific checks.
 3. Discover the project's own lint, test, type-check, build, package, and documentation commands. Run the checks appropriate to the changed surface. Do not install dependencies or alter toolchains unless the request authorizes that work.
-4. Review tracked history as well as the working tree for secrets when disclosure risk exists. Inspect logging statements and publishable log, trace, dump, HAR, crash, and diagnostic artifacts for credentials, personal data, and payment data. Never print a detected value. If a real credential may have entered Git history, stop publication and recommend revocation/rotation before history repair.
-5. Inspect effective Git identity, every reachable commit's Author and Committer, and annotated Tag taggers. Require the authenticated account's ID-based GitHub noreply address before creating a commit or making a repository public.
+4. Require the automated reachable-history scan to complete, then supplement it with any repository-configured secret scanner and contextual review. Inspect logging statements and publishable log, trace, dump, HAR, crash, and diagnostic artifacts for credentials, personal data, and payment data. Never print a detected value. If a real credential may have entered Git history, stop publication and recommend revocation/rotation before history repair.
+5. Inspect effective Git identity, every reachable commit's Author and Committer, and annotated Tag taggers. Before the first publication commit, obtain or reuse an explicit identity choice: recommend the authenticated account's ID-based GitHub noreply address, but allow the exact repository-configured personal email after warning that it becomes public Git metadata.
 6. Report findings as **blocker**, **warning**, or **advisory**, with file/command evidence and a concrete remedy. Distinguish verified facts from inferences and unverified items.
 
 Read [references/standards.md](references/standards.md) for the normative quality model and acceptance gates. Use project-specific conventions when they are stricter.
@@ -35,7 +35,7 @@ Read [references/sensitive-data-review.md](references/sensitive-data-review.md) 
 
 Treat a potential API key, authentication token, private key, password, session/cookie, credential-bearing URL, personal identifier, personal contact/address data in logs, payment-card/bank identifier, payment security code, live payment-provider key, or code that logs sensitive fields as a blocker. A failed, interrupted, incomplete, or unreadable required scan is also a blocker.
 
-Treat a non-noreply Author, Committer, or annotated Tag tagger in any reachable publication ref as a privacy blocker. Report only the commit SHA or ref name and role; never echo the email address.
+Treat an Author, Committer, or annotated Tag tagger outside the selected identity policy as a privacy blocker. Under the recommended policy, only GitHub ID-based noreply identities pass. Under an explicitly selected personal-email policy, the exact repository-configured email and ID-based noreply identities pass; other addresses remain blockers. Report only the commit SHA or ref name and role; never echo an address.
 
 Report only the finding category and location as `path:line`, plus a remediation. Redact the value completely; do not quote the matching line, include surrounding context, place it in a diff summary, or copy it into issues, commits, README text, Release notes, terminal output, or chat. A suspected false positive requires human review of the local file and an explicit disposition; never weaken or bypass the gate automatically.
 
@@ -69,7 +69,7 @@ Read [references/commit-conventions.md](references/commit-conventions.md) before
 
 Build each commit from one coherent intent. Select explicit paths, inspect the staged diff, and derive the type, scope, subject, body, and footers from that diff. Do not hide unrelated changes in a documentation or release commit. Validate the message with the repository's configured commitlint/Commitizen workflow when present, and do not install optional commit tooling merely to create one message.
 
-Before committing through GitHub publication mode, derive the authenticated account's ID-based noreply address with `gh api user`, configure it at repository scope, and ensure both Author and Committer use it. `--author` alone is insufficient because it does not set the Committer. The preflight identity scan MUST pass before commit, push, tag, Release, or public conversion.
+Before committing through GitHub publication mode, use a structured choice/card for identity when the user has not already selected one. Offer **GitHub ID-based noreply (Recommended)** and **Personal email (Caution)**. Noreply is the recommended card option, not implied consent: do not select it automatically when no identity decision is recorded. Warn that a personal address becomes durable public Git metadata, then configure the selected identity at repository scope and ensure both Author and Committer use it; `--author` alone is insufficient because it does not set the Committer. Run preflight with its default `noreply` policy, or with `--identity-policy configured` only after the personal-email choice. The identity scan MUST pass before commit, push, tag, Release, or public conversion.
 
 ## Execute external publication safely
 
@@ -88,6 +88,7 @@ Return:
 - publication mode and outcome;
 - blocker/warning/advisory summary and any accepted residual risk;
 - files changed and checks run, including failures or omissions;
+- user decisions and automatically applied defaults, including the evidence, scope, and outcome of each consequential default;
 - published branch and commit SHA, repository URL, and release/tag URL when applicable;
 - concise rollback or correction guidance for any external mutation.
 

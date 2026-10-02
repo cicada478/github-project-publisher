@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
@@ -32,6 +33,7 @@ SENSITIVE_NAMES = {
 GENERATED_DIRS = {
     ".cache", ".idea", ".pytest_cache", ".vscode", "coverage", "dist", "build", "target",
 }
+TEMP_SUFFIXES = {".bak", ".swp", ".temp", ".tmp"}
 LOG_DIRS = {"log", "logs", "debug", "dumps", "crash", "crashes", "diagnostics"}
 LOG_SUFFIXES = {".log", ".trace", ".dump", ".har"}
 TEXT_EXTENSIONS = {
@@ -96,19 +98,107 @@ def is_id_noreply(value: str) -> bool:
     return bool(ID_NOREPLY_PATTERN.fullmatch(value.strip().strip("<>")))
 
 
-def scan_git_identities(root: Path, findings: list[Finding], metadata: dict[str, object]) -> None:
+def normalized_email(value: str) -> str:
+    return value.strip().strip("<>").casefold()
+
+
+def expected_noreply(github_id: str, github_login: str) -> str:
+    if not github_id.isdigit() or not re.fullmatch(r"[A-Za-z0-9-]+", github_login):
+        raise ValueError("GitHub account identity had an invalid ID or login shape.")
+    return f"{github_id}+{github_login}@users.noreply.github.com"
+
+
+def resolve_expected_noreply(
+    gh_option: str | None,
+    github_id: str | None,
+    github_login: str | None,
+) -> tuple[str | None, str | None]:
+    if bool(github_id) != bool(github_login):
+        return None, "Both --expected-github-id and --expected-github-login are required together."
+    if github_id and github_login:
+        try:
+            return expected_noreply(github_id, github_login), None
+        except ValueError as exc:
+            return None, str(exc)
+
+    gh = gh_option or shutil.which("gh")
+    if not gh:
+        return None, "GitHub CLI was not found; authenticated account ownership could not be verified."
+    proc = subprocess.run(
+        [gh, "api", "user", "--jq", "[.id,.login] | @tsv"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    if proc.returncode != 0:
+        return None, "The authenticated GitHub account could not be resolved with gh."
+    parts = proc.stdout.strip().split("\t")
+    if len(parts) != 2:
+        return None, "GitHub account metadata had an unexpected shape."
+    try:
+        return expected_noreply(parts[0], parts[1]), None
+    except ValueError as exc:
+        return None, str(exc)
+
+
+def is_approved_email(
+    value: str,
+    configured_email: str,
+    identity_policy: str,
+    approved_noreply: str | None,
+) -> bool:
+    if is_id_noreply(value):
+        return approved_noreply is None or normalized_email(value) == normalized_email(approved_noreply)
+    return (
+        identity_policy == "configured"
+        and bool(configured_email)
+        and normalized_email(value) == normalized_email(configured_email)
+    )
+
+
+def scan_git_identities(
+    root: Path,
+    findings: list[Finding],
+    metadata: dict[str, object],
+    identity_policy: str,
+    approved_noreply: str | None,
+    account_error: str | None,
+) -> None:
     code, configured_email = git(root, "config", "--local", "--get", "user.email")
+    metadata["identity_policy"] = identity_policy
+    metadata["github_account_verified"] = approved_noreply is not None
+    if approved_noreply is None:
+        findings.append(Finding(
+            "blocker", "github-account-unverified",
+            account_error or "Authenticated GitHub account ownership could not be verified.",
+            "github-account",
+        ))
     metadata["local_noreply_configured"] = code == 0 and is_id_noreply(configured_email)
     if code != 0 or not configured_email:
         findings.append(Finding(
             "blocker", "git-email-not-configured",
-            "Repository-local Git email is missing; configure the authenticated account's ID-based GitHub noreply address.",
+            "Repository-local Git email is missing; configure the explicitly selected publication identity.",
             "git-config:user.email",
         ))
-    elif not is_id_noreply(configured_email):
+    elif identity_policy == "noreply" and not is_id_noreply(configured_email):
         findings.append(Finding(
             "blocker", "git-email-not-noreply",
             "Repository-local Git email is not an ID-based GitHub noreply address; value intentionally redacted.",
+            "git-config:user.email",
+        ))
+    elif is_id_noreply(configured_email) and approved_noreply and normalized_email(configured_email) != normalized_email(approved_noreply):
+        findings.append(Finding(
+            "blocker", "git-email-account-mismatch",
+            "Repository-local noreply email does not belong to the authenticated GitHub account; value intentionally redacted.",
+            "git-config:user.email",
+        ))
+    elif identity_policy == "configured" and not is_id_noreply(configured_email):
+        findings.append(Finding(
+            "warning", "git-email-public",
+            "The selected repository-local Git email will be public in Git metadata; value intentionally redacted.",
             "git-config:user.email",
         ))
 
@@ -126,16 +216,16 @@ def scan_git_identities(root: Path, findings: list[Finding], metadata: dict[str,
                 continue
             commit_count += 1
             sha, author_email, committer_email = parts
-            if not is_id_noreply(author_email):
+            if not is_approved_email(author_email, configured_email, identity_policy, approved_noreply):
                 findings.append(Finding(
-                    "blocker", "commit-author-email-not-noreply",
-                    "Commit Author email is not an ID-based GitHub noreply address; value intentionally redacted.",
+                    "blocker", "commit-author-email-not-approved",
+                    "Commit Author email is not approved by the selected identity policy; value intentionally redacted.",
                     f"commit:{sha}",
                 ))
-            if not is_id_noreply(committer_email):
+            if not is_approved_email(committer_email, configured_email, identity_policy, approved_noreply):
                 findings.append(Finding(
-                    "blocker", "commit-committer-email-not-noreply",
-                    "Commit Committer email is not an ID-based GitHub noreply address; value intentionally redacted.",
+                    "blocker", "commit-committer-email-not-approved",
+                    "Commit Committer email is not approved by the selected identity policy; value intentionally redacted.",
                     f"commit:{sha}",
                 ))
     metadata["commit_identity_count"] = commit_count
@@ -158,10 +248,10 @@ def scan_git_identities(root: Path, findings: list[Finding], metadata: dict[str,
         if object_type != "tag":
             continue
         annotated_count += 1
-        if not is_id_noreply(tagger_email):
+        if not is_approved_email(tagger_email, configured_email, identity_policy, approved_noreply):
             findings.append(Finding(
-                "blocker", "tagger-email-not-noreply",
-                "Annotated Tag tagger email is not an ID-based GitHub noreply address; value intentionally redacted.",
+                "blocker", "tagger-email-not-approved",
+                "Annotated Tag tagger email is not approved by the selected identity policy; value intentionally redacted.",
                 refname,
             ))
     metadata["annotated_tag_identity_count"] = annotated_count
@@ -248,6 +338,149 @@ def add_redacted_finding(findings: list[Finding], code: str, rel: str, line: int
     ))
 
 
+def scan_text_lines(
+    lines: Iterable[str],
+    rel: str,
+    suffix: str,
+    findings: list[Finding],
+    code_prefix: str = "",
+) -> None:
+    relative_path = Path(rel)
+    log_file = is_log_path(relative_path)
+    source_file = suffix.lower() in SOURCE_EXTENSIONS
+    for number, line in enumerate(lines, 1):
+        for code, pattern in SECRET_PATTERNS:
+            if pattern.search(line):
+                add_redacted_finding(findings, f"{code_prefix}{code}", rel, number)
+
+        if any(valid_china_id(match.group(1)) for match in CHINA_ID_PATTERN.finditer(line)):
+            add_redacted_finding(findings, f"{code_prefix}personal-id-number", rel, number)
+        if any(valid_luhn(match.group(0)) for match in CARD_PATTERN.finditer(line)):
+            add_redacted_finding(findings, f"{code_prefix}payment-card-number", rel, number)
+        if any(valid_iban(match.group(1)) for match in IBAN_PATTERN.finditer(line)):
+            add_redacted_finding(findings, f"{code_prefix}bank-account-identifier", rel, number)
+        if CVV_CONTEXT_PATTERN.search(line):
+            add_redacted_finding(findings, f"{code_prefix}payment-security-code", rel, number)
+        if source_file and SENSITIVE_LOG_SINK_PATTERN.search(line):
+            add_redacted_finding(findings, f"{code_prefix}sensitive-data-log-sink", rel, number)
+
+        if log_file:
+            if EMAIL_PATTERN.search(line):
+                add_redacted_finding(findings, f"{code_prefix}log-personal-email", rel, number)
+            if PHONE_CONTEXT_PATTERN.search(line):
+                add_redacted_finding(findings, f"{code_prefix}log-personal-phone", rel, number)
+            if ADDRESS_CONTEXT_PATTERN.search(line):
+                add_redacted_finding(findings, f"{code_prefix}log-personal-address", rel, number)
+            if SSN_CONTEXT_PATTERN.search(line):
+                add_redacted_finding(findings, f"{code_prefix}log-personal-id", rel, number)
+
+
+def current_tracked_blobs(root: Path) -> dict[str, str]:
+    code, output = git(root, "ls-files", "--stage", "-z")
+    if code != 0:
+        raise RuntimeError("git ls-files failed; current tracked blobs could not be identified")
+    result: dict[str, str] = {}
+    for row in output.split("\0"):
+        if not row or "\t" not in row:
+            continue
+        metadata, path = row.split("\t", 1)
+        parts = metadata.split()
+        if len(parts) >= 3 and parts[2] == "0":
+            result[path.replace("\\", "/")] = parts[1]
+    return result
+
+
+def history_blob_entries(root: Path) -> list[tuple[str, str, int]]:
+    code, output = git(root, "rev-list", "--objects", "--all")
+    if code != 0:
+        raise RuntimeError("git rev-list failed; historical objects could not be enumerated")
+    objects: list[tuple[str, str]] = []
+    for row in output.splitlines():
+        sha, separator, path = row.partition(" ")
+        if sha:
+            objects.append((sha, path.replace("\\", "/") if separator else ""))
+    if not objects:
+        return []
+    proc = subprocess.run(
+        ["git", "-C", str(root), "cat-file", "--batch-check=%(objectname) %(objecttype) %(objectsize)"],
+        input="\n".join(sha for sha, _ in objects) + "\n",
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        check=False,
+    )
+    if proc.returncode != 0:
+        raise RuntimeError("git cat-file failed; historical objects could not be classified")
+    classifications = proc.stdout.splitlines()
+    if len(classifications) != len(objects):
+        raise RuntimeError("historical object classification was incomplete")
+    entries: list[tuple[str, str, int]] = []
+    seen: set[str] = set()
+    for (requested_sha, path), row in zip(objects, classifications):
+        parts = row.split()
+        if len(parts) != 3 or parts[1] != "blob" or requested_sha in seen:
+            continue
+        try:
+            size = int(parts[2])
+        except ValueError as exc:
+            raise RuntimeError("historical blob size was invalid") from exc
+        seen.add(requested_sha)
+        entries.append((requested_sha, path, size))
+    return entries
+
+
+def scan_history_content(root: Path, findings: list[Finding], metadata: dict[str, object]) -> None:
+    current = current_tracked_blobs(root)
+    entries = history_blob_entries(root)
+    scanned = 0
+    for sha, path_text, size in entries:
+        if path_text and current.get(path_text) == sha:
+            continue
+        display_path = path_text or "<pathless-blob>"
+        historical_location = f"history:{sha[:12]}:{display_path}"
+        path = Path(display_path)
+        lower_name = path.name.lower()
+        if lower_name in SENSITIVE_NAMES or lower_name.startswith(".env.") or path.suffix.lower() in {".key", ".p12", ".pfx", ".pem", ".jks", ".keystore", ".ovpn"}:
+            findings.append(Finding(
+                "blocker", "history-sensitive-filename",
+                "Potential credential or private-key file exists in reachable Git history; inspect without disclosing contents.",
+                historical_location,
+            ))
+        text_like = path.suffix.lower() in TEXT_EXTENSIONS or lower_name in {
+            "dockerfile", "makefile", "readme", "license", "notice",
+        }
+        if size > MAX_TEXT_SCAN_BYTES:
+            if text_like:
+                findings.append(Finding(
+                    "blocker", "history-content-scan-incomplete",
+                    f"Historical text-like blob exceeds the {MAX_TEXT_SCAN_BYTES // (1024 * 1024)} MiB scan limit.",
+                    historical_location,
+                ))
+            continue
+        proc = subprocess.run(
+            ["git", "-C", str(root), "cat-file", "blob", sha],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+        if proc.returncode != 0:
+            findings.append(Finding(
+                "blocker", "history-content-scan-failed",
+                "A reachable historical blob could not be read.", historical_location,
+            ))
+            continue
+        data = proc.stdout
+        if not text_like and b"\0" in data[:4096]:
+            continue
+        scanned += 1
+        text = data.decode("utf-8", errors="replace")
+        scan_text_lines(text.splitlines(), historical_location, path.suffix, findings, "history-")
+    metadata["history_blob_count"] = len(entries)
+    metadata["historical_text_blob_count"] = scanned
+
+
 def scan_content(root: Path, files: Iterable[Path], findings: list[Finding]) -> None:
     for path in files:
         try:
@@ -270,6 +503,8 @@ def scan_content(root: Path, files: Iterable[Path], findings: list[Finding]) -> 
             findings.append(Finding("blocker", "sensitive-filename", "Potential credential or private-key file; inspect without disclosing contents.", rel))
         if lower_parts & GENERATED_DIRS:
             findings.append(Finding("warning", "generated-path", "Generated, cache, or editor path appears publishable; verify intent and ignore rules.", rel))
+        if path.suffix.lower() in TEMP_SUFFIXES:
+            findings.append(Finding("warning", "temporary-file", "Temporary or backup file appears publishable; remove it or document its intent.", rel))
         if log_file:
             findings.append(Finding("warning", "log-artifact", "Log or diagnostic artifact appears publishable; verify that inclusion is necessary.", rel))
 
@@ -283,36 +518,17 @@ def scan_content(root: Path, files: Iterable[Path], findings: list[Finding]) -> 
             continue
         try:
             with path.open("r", encoding="utf-8", errors="replace") as handle:
-                for number, line in enumerate(handle, 1):
-                    for code, pattern in SECRET_PATTERNS:
-                        if pattern.search(line):
-                            add_redacted_finding(findings, code, rel, number)
-
-                    if any(valid_china_id(match.group(1)) for match in CHINA_ID_PATTERN.finditer(line)):
-                        add_redacted_finding(findings, "personal-id-number", rel, number)
-                    if any(valid_luhn(match.group(0)) for match in CARD_PATTERN.finditer(line)):
-                        add_redacted_finding(findings, "payment-card-number", rel, number)
-                    if any(valid_iban(match.group(1)) for match in IBAN_PATTERN.finditer(line)):
-                        add_redacted_finding(findings, "bank-account-identifier", rel, number)
-                    if CVV_CONTEXT_PATTERN.search(line):
-                        add_redacted_finding(findings, "payment-security-code", rel, number)
-                    if path.suffix.lower() in SOURCE_EXTENSIONS and SENSITIVE_LOG_SINK_PATTERN.search(line):
-                        add_redacted_finding(findings, "sensitive-data-log-sink", rel, number)
-
-                    if log_file:
-                        if EMAIL_PATTERN.search(line):
-                            add_redacted_finding(findings, "log-personal-email", rel, number)
-                        if PHONE_CONTEXT_PATTERN.search(line):
-                            add_redacted_finding(findings, "log-personal-phone", rel, number)
-                        if ADDRESS_CONTEXT_PATTERN.search(line):
-                            add_redacted_finding(findings, "log-personal-address", rel, number)
-                        if SSN_CONTEXT_PATTERN.search(line):
-                            add_redacted_finding(findings, "log-personal-id", rel, number)
+                scan_text_lines(handle, rel, path.suffix, findings)
         except OSError as exc:
             findings.append(Finding("blocker", "scan-failed", f"Could not inspect text content: {exc}", rel))
 
 
-def inspect_repository(root: Path) -> tuple[dict[str, object], list[Finding]]:
+def inspect_repository(
+    root: Path,
+    identity_policy: str = "noreply",
+    approved_noreply: str | None = None,
+    account_error: str | None = None,
+) -> tuple[dict[str, object], list[Finding]]:
     findings: list[Finding] = []
     code, _ = git(root, "rev-parse", "--show-toplevel")
     is_git = code == 0
@@ -338,7 +554,15 @@ def inspect_repository(root: Path) -> tuple[dict[str, object], list[Finding]]:
             findings.append(Finding("blocker", "git-remote-check-failed", "Git remotes could not be inspected."))
         elif not remotes:
             findings.append(Finding("advisory", "no-remote", "No Git remote is configured."))
-        scan_git_identities(root, findings, metadata)
+        scan_git_identities(root, findings, metadata, identity_policy, approved_noreply, account_error)
+        try:
+            scan_history_content(root, findings, metadata)
+        except RuntimeError as exc:
+            findings.append(Finding(
+                "blocker", "history-content-scan-failed",
+                f"Reachable Git history could not be scanned completely: {exc}",
+                "git-history",
+            ))
 
     files = candidate_files(root, is_git)
     metadata["candidate_file_count"] = len(files)
@@ -378,6 +602,15 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("repository", nargs="?", default=".", help="Repository path (default: current directory)")
     parser.add_argument("--format", choices=("text", "json"), default="text")
+    parser.add_argument(
+        "--identity-policy",
+        choices=("noreply", "configured"),
+        default="noreply",
+        help="Require ID-based noreply (default), or allow the exact repository-local email after explicit approval.",
+    )
+    parser.add_argument("--gh", help="Path to the GitHub CLI executable used to resolve the authenticated account")
+    parser.add_argument("--expected-github-id", help="Expected numeric GitHub account ID; use with --expected-github-login")
+    parser.add_argument("--expected-github-login", help="Expected GitHub login; use with --expected-github-id")
     parser.add_argument("--strict", action="store_true", help="Return failure when warnings exist")
     args = parser.parse_args()
     root = Path(args.repository).expanduser().resolve()
@@ -385,7 +618,15 @@ def main() -> int:
         print(f"error: repository path is not a directory: {root}", file=sys.stderr)
         return 2
     try:
-        metadata, findings = inspect_repository(root)
+        approved_noreply, account_error = resolve_expected_noreply(
+            args.gh, args.expected_github_id, args.expected_github_login,
+        )
+        metadata, findings = inspect_repository(
+            root,
+            identity_policy=args.identity_policy,
+            approved_noreply=approved_noreply,
+            account_error=account_error,
+        )
     except (FileNotFoundError, RuntimeError) as exc:
         print(f"error: publication preflight could not complete: {exc}", file=sys.stderr)
         return 2

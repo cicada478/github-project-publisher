@@ -20,7 +20,7 @@ The bundled scanner covers common text patterns and high-confidence identifiers.
 - Personal identifiers and records: government ID numbers, personal email/phone/address data in logs, account identifiers, health/education/employment records, precise location, biometrics, or private customer/user payloads.
 - Payment and financial data: payment-card numbers, CVV/CVC/security codes, bank-account/IBAN data, live payment-provider keys, wallet credentials, transaction authorization material, and unredacted payment payloads.
 - Logging statements that can emit any of the above, even when no captured log is currently present.
-- A commit Author or Committer, or annotated Tag tagger, whose email is not the authenticated account's approved ID-based `ID+USERNAME@users.noreply.github.com` address.
+- A commit Author or Committer, or annotated Tag tagger, whose email falls outside the explicitly selected identity policy.
 - Any relevant file that could not be enumerated, opened, decoded sufficiently for the required review, or scanned to completion.
 
 Examples and test vectors are not automatically safe. Confirm that they are provider-documented test values or unmistakable placeholders and cannot authenticate, identify a real person, or authorize payment. Record that disposition without reproducing the value.
@@ -33,7 +33,9 @@ Run from the skill directory while passing the repository path:
 python scripts/preflight.py <repository>
 ```
 
-Before creating a commit, derive and set the authenticated account identity at repository scope:
+The preflight enumerates all blobs reachable from local refs and scans historical text content that differs from the current tracked blob at the same path. A removed secret therefore remains blocking. An unreadable or oversized historical text blob produces an incomplete-scan blocker. Binary, encrypted, archived, image, and proprietary formats still require the supplemental review described above.
+
+Before creating a commit, ask for the identity choice when it is not already established. Recommend the authenticated account's ID-based noreply address and derive it rather than trusting a typed numeric ID:
 
 ```sh
 ACCOUNT_ID="$(gh api user --jq .id)"
@@ -49,6 +51,14 @@ When an explicit Author is required, include angle brackets and still configure 
 git commit --author="NAME <ID+USERNAME@users.noreply.github.com>" -m "..."
 ```
 
+If the user explicitly chooses a personal address after the public-metadata warning, configure that exact address at repository scope and run:
+
+```sh
+python scripts/preflight.py <repository> --identity-policy configured
+```
+
+This mode accepts ID-based noreply identities plus the exact repository-local `user.email`; it does not allow unrelated historical addresses. It emits a warning without printing the selected address. Record the warning as accepted by the user's identity choice.
+
 Immediately before push, Tag, Release, and public conversion, inspect all reachable commits:
 
 ```sh
@@ -56,7 +66,7 @@ git log --all --format='%H | %an <%ae> | %cn <%ce>'
 git for-each-ref --format='%(refname) | %(objecttype) | %(taggeremail)' refs/tags
 ```
 
-The automated preflight performs the same identity classification without printing email values. Match the expected address to the account returned by `gh api user`; a syntactically valid noreply address for a different account is not sufficient.
+The automated preflight resolves the expected address from `gh api user` without printing email values and rejects syntactically valid noreply addresses owned by another account. If `gh` is not on `PATH`, pass `--gh PATH`. In non-networked CI, pass both `--expected-github-id ID` and `--expected-github-login LOGIN` only from trusted repository configuration; never derive them from the commits being checked.
 
 Interpret exit codes:
 

@@ -1,7 +1,7 @@
 interface:
   display_name: "GitHub 规范发布"
   short_description: "按可审计流程检查项目、撰写文档并安全发布到 GitHub"
-  default_prompt: "Use $github-project-publisher to audit this project, prepare its documentation, upload privately with noreply Git identities, verify Release assets, and stop at the final public-visibility gate."
+  default_prompt: "Use $github-project-publisher to audit this project, ask every unresolved consequential choice with structured input when available, record automatic defaults, upload privately, verify Release assets, and stop at the final public-visibility gate."
 
 policy:
   allow_implicit_invocation: true

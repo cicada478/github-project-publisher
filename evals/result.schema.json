@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "case_id": {"type": "string"},
+    "should_use_skill": {"type": "boolean"},
+    "route": {
+      "type": "string",
+      "enum": [
+        "no-question",
+        "binary-confirmation",
+        "structured-card",
+        "free-form",
+        "host-permission",
+        "supported-fallback",
+        "blocker-stop",
+        "not-applicable"
+      ]
+    },
+    "must_call_request_user_input": {"type": "boolean"},
+    "must_stop_before_mutation": {"type": "boolean"},
+    "rationale": {"type": "string"}
+  },
+  "required": [
+    "case_id",
+    "should_use_skill",
+    "route",
+    "must_call_request_user_input",
+    "must_stop_before_mutation",
+    "rationale"
+  ]
+}

@@ -1,0 +1,64 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run_live_evals:
+        description: "Run authenticated Codex behavior evals"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  deterministic:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+      - name: Compile scripts
+        run: python -m py_compile github-project-publisher/scripts/preflight.py github-project-publisher/scripts/release_integrity.py evals/run_skill_evals.py
+      - name: Run unit tests
+        run: python -m unittest discover -s github-project-publisher/tests -v
+      - name: Validate behavior-eval corpus
+        run: python evals/run_skill_evals.py
+      - name: Configure verified publication identity
+        if: github.event_name != 'pull_request'
+        run: |
+          git config --local user.name cicada478
+          git config --local user.email 149449562+cicada478@users.noreply.github.com
+      - name: Run strict repository preflight
+        if: github.event_name != 'pull_request'
+        run: >-
+          python github-project-publisher/scripts/preflight.py . --strict
+          --expected-github-id 149449562 --expected-github-login cicada478
+
+  live-skill-evals:
+    if: github.event_name == 'workflow_dispatch' && inputs.run_live_evals
+    needs: deterministic
+    runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.10"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Require eval credential
+        shell: bash
+        run: test -n "$OPENAI_API_KEY"
+      - name: Install Codex CLI
+        run: npm install --global @openai/codex
+      - name: Run read-only behavior evals
+        run: python evals/run_skill_evals.py --execute
