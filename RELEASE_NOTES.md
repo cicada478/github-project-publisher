@@ -1,30 +1,102 @@
-# Unreleased
+# GitHub Project Publisher v0.4.0
 
-本轮调整将 Skill 从默认高强度的单作者发布门禁，改为面向普通项目的风险自适应 GitHub 发布助手。
+发布类型：`稳定版 / Stable`
 
-### 中文变更摘要
+发布日期：`2026-10-04`
 
-- 预检默认扫描工作树与 `HEAD`，最终推送门禁可用 `--committed-only --ref REF` 精确限定待发布分支或 Tag；无关本地 refs 不再阻断普通发布。
-- 既有 Author、Committer、Tagger、Bot 和导入历史默认作为来源信息报告，不再因为不同于当前发布者而阻断；显式的 `--history-identity-policy strict` 保留单身份审查能力。
-- 只读审计使用 `--identity-policy report`，无需 GitHub 登录；noreply 所属账户验证仍用于工作流创建的新提交。
+版本：`v0.4.0`
+
+目标分支：`main`
+
+目标提交：由附注标签 `v0.4.0` 固定。
+
+## Release 标题
+
+```text
+v0.4.0 — Adaptive GitHub publication workflow
+```
+
+## 中文 Release Notes
+
+v0.4.0 将 Skill 从偏向单作者、高强度门禁的发布流程扩展为适用于普通项目和协作仓库的风险自适应 GitHub 发布助手。隐私检查仍然是硬门禁，但扫描范围、身份判断、证据复用和外部操作会根据实际候选内容与发布目标执行，减少无关检查和误阻断。
+
+### 新增
+
+- 最终推送门禁支持 `--committed-only --ref REF`，可精确限定将要发布的分支或标签；多个候选引用可重复传入 `--ref`。
+- 新增显式的 `--history-identity-policy strict`，在确实需要单身份历史审查时保留严格模式。
+- 新增候选引用 OID、历史去重数量和工作树扫描状态等机器可读元数据。
+- 新增协作历史、精确引用、仅提交内容、大型无扩展名文本、扫描去重及旧秘密保留等测试覆盖。
+
+### 变更
+
+- 既有 Author、Committer、Tagger、Bot 和导入历史默认作为来源信息报告，不再因为不同于当前发布者而阻断普通协作仓库。
+- 只读审计默认使用报告模式，无需 GitHub 登录；工作流创建的新提交和附注标签仍执行经过账户核验的身份策略。
 - 大型无扩展名历史文本不再静默跳过；符号链接按链接本身检查，不跟随到仓库外部。
-- 新建且准备公开的仓库继续采用 Private-first 和最终公开确认；既有公开仓库沿用原有可见性与协作流程。
-- 默认 Skill 提示改为只读审计，不再隐含授权创建或上传仓库。
-- 工作树中与候选历史完全相同的已跟踪 Blob 只扫描一次；已修改文件仍会同时检查新工作树内容与旧候选历史，避免去重掩盖已删除的秘密。
-- 检查证据现在绑定候选 ref OID、身份策略、配置、资产、目标和远端状态；输入未变化时复用结果，不再为每个操作节点重复全文扫描。
-- 身份、交互、敏感数据和外部发布规则已收敛到各自的单一参考文件，减少运行时上下文和多文件规则漂移。
+- 新建且最终准备公开的仓库继续使用 Private-first 和最终公开确认；既有仓库保留原有可见性与协作流程。
+- 默认 Skill 提示改为只读审计，不再隐含授权创建仓库或上传内容。
+- 工作树中与候选历史完全相同的已跟踪 Blob 只扫描一次；已修改文件仍同时检查工作树内容与旧候选历史。
+- 检查证据绑定候选 ref OID、身份策略、相关配置、资产、目标和远端状态；输入未改变时可以安全复用。
+- 身份、交互、敏感数据和发布规则收敛到各自的权威参考文件，减少上下文冗余和规则漂移。
 
-### English summary
+### 兼容性说明
 
-- Preflight now separates worktree review from the final `--committed-only --ref REF` push gate, so unrelated local refs do not block ordinary publication.
-- Existing contributors, bots, imported history, and Taggers are provenance advisories by default; strict single-identity history review remains explicitly available.
-- Read-only audits use report-only identity mode without GitHub authentication, while new workflow-created commits retain verified identity checks.
+- 没有破坏性配置、命令行或数据格式变更；原有默认调用方式继续有效。
+- 普通协作历史不再因作者身份不同而失败。需要原有单身份约束的工作流应显式启用严格历史身份策略。
+- 二进制、图片、压缩包、加密内容、专有格式和跨变量拼接的秘密仍需人工或领域工具复核。
+
+### 验证
+
+- 23 项 Python 标准库单元测试通过。
+- 12 个行为 eval 场景的结构与覆盖校验通过。
+- Skill 元数据、UI 配置、本地 Markdown 链接和 `git diff --check` 通过。
+- 最终提交引用执行敏感信息与 GitHub noreply 身份门禁，结果为 0 个 blocker。
+- 本版本不上传用户提供的 Release 资产；SHA-256 资产门禁记录为不适用。
+
+### 安装或升级
+
+将 `github-project-publisher` 目录复制到项目级或用户级 `.codex\skills` 目录，覆盖旧版本后重新打开任务或重启 Codex。
+
+---
+
+## English Release Notes
+
+v0.4.0 expands the Skill from a strict, single-author-oriented gate into a risk-adaptive GitHub publication assistant for routine projects and collaborative repositories. Privacy checks remain hard gates, while scan scope, identity handling, evidence reuse, and external operations now follow the actual publication candidate and destination.
+
+### Added
+
+- A final `--committed-only --ref REF` gate that scopes publication checks to the exact branches or tags being pushed, with repeatable `--ref` arguments for multiple candidates.
+- An explicit `--history-identity-policy strict` mode for workflows that genuinely require single-identity history review.
+- Machine-readable candidate ref OIDs, history deduplication counts, and worktree-scan state.
+- Test coverage for collaborative history, exact ref scoping, committed-only publication, large extensionless text, scan deduplication, and retained historical secrets.
+
+### Changed
+
+- Existing Authors, Committers, Taggers, bots, and imported history are provenance by default instead of failures merely because they differ from the current publisher.
+- Read-only audits default to report-only identity handling without GitHub authentication; workflow-created commits and annotated tags still use account-verified identity gates.
 - Large extensionless historical text is no longer silently skipped, and symbolic links are inspected without following targets outside the repository.
-- Private-first remains the safeguard for newly created public destinations; existing repositories preserve their visibility and collaboration workflow.
-- The default Skill prompt is audit-only and no longer implies authorization to create or upload a repository.
-- Tracked worktree content identical to a candidate-history Blob is scanned once; modified files still trigger checks of both new worktree content and old candidate history.
-- Check evidence is now tied to ref OIDs, identity policy, relevant configuration, assets, destination, and remote state, so unchanged inputs do not trigger repeated full scans.
-- Identity, interaction, sensitive-data, and external-publication rules now have focused authoritative references, reducing runtime context and policy drift.
+- Private-first remains required for newly created destinations whose final state is public, while existing repositories retain their visibility and collaboration workflow.
+- The default Skill prompt is audit-only and no longer implies authorization to create a repository or upload content.
+- Tracked worktree content identical to a candidate-history Blob is scanned once; modified files still cause both worktree content and prior candidate history to be checked.
+- Evidence is tied to candidate ref OIDs, identity policy, relevant configuration, assets, destination, and remote state, allowing safe reuse while inputs remain unchanged.
+- Identity, interaction, sensitive-data, and publication rules now live in focused authoritative references, reducing context duplication and policy drift.
+
+### Compatibility
+
+- There are no breaking configuration, command-line, or data-format changes; existing default invocations remain valid.
+- Collaborative history no longer fails solely because contributors use different identities. Workflows that require the previous single-identity constraint should explicitly enable strict history identity review.
+- Binaries, images, archives, encrypted content, proprietary formats, and secrets assembled across variables still require manual or domain-specific review.
+
+### Verification
+
+- All 23 Python standard-library unit tests pass.
+- The 12-case behavior eval corpus passes structure and coverage validation.
+- Skill metadata, UI configuration, local Markdown links, and `git diff --check` pass.
+- The final committed ref passes sensitive-data and GitHub noreply identity gates with zero blockers.
+- This release has no user-supplied Release assets; the SHA-256 asset gate is recorded as not applicable.
+
+### Install or upgrade
+
+Copy the `github-project-publisher` directory into a project- or user-scoped `.codex\skills` directory, replacing the previous version, then reopen the task or restart Codex.
 
 ---
 
