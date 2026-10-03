@@ -45,15 +45,16 @@ class PreflightIdentityTests(unittest.TestCase):
             identity_codes = {item.code for item in findings if "email" in item.code}
             self.assertEqual(identity_codes, set())
 
-    def test_real_author_and_committer_are_blockers(self) -> None:
+    def test_existing_personal_identity_is_reported_without_blocking(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             make_repository(root, "developer@example.com")
             _, findings = preflight.inspect_repository(root, approved_noreply=NOREPLY)
             codes = {item.code for item in findings}
-            self.assertIn("git-email-not-noreply", codes)
-            self.assertIn("commit-author-email-not-approved", codes)
-            self.assertIn("commit-committer-email-not-approved", codes)
+            self.assertIn("git-email-public", codes)
+            self.assertIn("commit-author-email-outside-current-policy", codes)
+            self.assertIn("commit-committer-email-outside-current-policy", codes)
+            self.assertFalse(any(item.severity == "blocker" and "email" in item.code for item in findings))
 
     def test_explicit_configured_email_is_allowed_with_warning(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -65,7 +66,7 @@ class PreflightIdentityTests(unittest.TestCase):
             self.assertFalse(any(item.severity == "blocker" and "email" in item.code for item in findings))
             self.assertIn("git-email-public", {item.code for item in findings})
 
-    def test_configured_policy_blocks_a_different_personal_email(self) -> None:
+    def test_configured_policy_allows_collaborative_history_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             make_repository(root, "developer@example.com")
@@ -73,40 +74,78 @@ class PreflightIdentityTests(unittest.TestCase):
             _, findings = preflight.inspect_repository(
                 root, identity_policy="configured", approved_noreply=NOREPLY,
             )
-            codes = {item.code for item in findings if item.severity == "blocker"}
-            self.assertIn("commit-author-email-not-approved", codes)
-            self.assertIn("commit-committer-email-not-approved", codes)
+            codes = {item.code for item in findings}
+            self.assertIn("commit-author-email-outside-current-policy", codes)
+            self.assertIn("commit-committer-email-outside-current-policy", codes)
+            self.assertFalse(any(item.severity == "blocker" and "email" in item.code for item in findings))
+
+    def test_strict_history_identity_policy_blocks_mismatches(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_repository(root, "developer@example.com")
+            run_git(root, "config", "user.email", NOREPLY)
+            _, findings = preflight.inspect_repository(
+                root,
+                identity_policy="noreply",
+                history_identity_policy="strict",
+                approved_noreply=NOREPLY,
+            )
+            blockers = {item.code for item in findings if item.severity == "blocker"}
+            self.assertIn("commit-author-email-outside-current-policy", blockers)
+            self.assertIn("commit-committer-email-outside-current-policy", blockers)
 
     def test_noreply_for_different_account_is_blocked(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             make_repository(root, OTHER_NOREPLY)
-            _, findings = preflight.inspect_repository(root, approved_noreply=NOREPLY)
+            _, findings = preflight.inspect_repository(
+                root, approved_noreply=NOREPLY, requested_refs=["v1.0.0"],
+            )
             codes = {item.code for item in findings if item.severity == "blocker"}
-            self.assertIn("git-email-account-mismatch", codes)
-            self.assertIn("commit-author-email-not-approved", codes)
-            self.assertIn("commit-committer-email-not-approved", codes)
+            self.assertNotIn("git-email-account-mismatch", codes)
 
-    def test_real_annotated_tag_email_is_a_blocker(self) -> None:
+            _, publish_findings = preflight.inspect_repository(
+                root, identity_policy="noreply", approved_noreply=NOREPLY,
+            )
+            publish_codes = {item.code for item in publish_findings if item.severity == "blocker"}
+            self.assertIn("git-email-account-mismatch", publish_codes)
+
+    def test_existing_annotated_tag_identity_is_advisory(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             make_repository(root, NOREPLY)
             run_git(root, "config", "user.email", "tagger@example.com")
             run_git(root, "tag", "-a", "v1.0.0", "-m", "v1.0.0")
             run_git(root, "config", "user.email", NOREPLY)
-            _, findings = preflight.inspect_repository(root, approved_noreply=NOREPLY)
-            self.assertIn("tagger-email-not-approved", {item.code for item in findings})
+            _, findings = preflight.inspect_repository(
+                root, approved_noreply=NOREPLY, requested_refs=["v1.0.0"],
+            )
+            matches = [item for item in findings if item.code == "tagger-email-outside-current-policy"]
+            self.assertTrue(matches)
+            self.assertTrue(all(item.severity == "advisory" for item in matches))
 
     def test_lightweight_tag_without_tagger_is_not_malformed(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             make_repository(root, NOREPLY)
             run_git(root, "tag", "v1.0.0")
-            _, findings = preflight.inspect_repository(root, approved_noreply=NOREPLY)
+            _, findings = preflight.inspect_repository(
+                root, approved_noreply=NOREPLY, requested_refs=["v1.0.0"],
+            )
             self.assertNotIn("git-tag-identity-scan-incomplete", {item.code for item in findings})
 
 
 class HistoricalContentTests(unittest.TestCase):
+    def test_empty_repository_can_be_audited_before_first_commit(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            run_git(root, "init", "--initial-branch=main")
+            (root / "README.md").write_text("# Empty repository\n", encoding="utf-8")
+            metadata, findings = preflight.inspect_repository(root)
+            self.assertEqual(metadata["publication_refs"], [])
+            self.assertNotIn("git-identity-scan-failed", {item.code for item in findings})
+            self.assertNotIn("history-content-scan-failed", {item.code for item in findings})
+
     def test_secret_removed_from_worktree_still_blocks_from_history(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -124,6 +163,83 @@ class HistoricalContentTests(unittest.TestCase):
             self.assertTrue(history_findings)
             self.assertTrue(all((item.path or "").startswith("history:") for item in history_findings))
             self.assertGreater(metadata["historical_text_blob_count"], 0)
+
+    def test_unchanged_tip_blob_is_not_scanned_twice(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_repository(root, NOREPLY)
+            synthetic_token = "ghp_" + ("D" * 36)
+            (root / "current.txt").write_text(f"token={synthetic_token}\n", encoding="utf-8")
+            run_git(root, "add", "--", "current.txt")
+            run_git(root, "commit", "-m", "test: add current fixture")
+
+            metadata, findings = preflight.inspect_repository(root, approved_noreply=NOREPLY)
+            self.assertIn("github-token", {item.code for item in findings})
+            self.assertNotIn("history-github-token", {item.code for item in findings})
+            self.assertGreater(metadata["deduplicated_history_blob_count"], 0)
+
+    def test_modified_worktree_does_not_hide_secret_in_tip_history(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_repository(root, NOREPLY)
+            synthetic_token = "ghp_" + ("E" * 36)
+            (root / "current.txt").write_text(f"token={synthetic_token}\n", encoding="utf-8")
+            run_git(root, "add", "--", "current.txt")
+            run_git(root, "commit", "-m", "test: add current fixture")
+            (root / "current.txt").write_text("token=REDACTED\n", encoding="utf-8")
+
+            _, findings = preflight.inspect_repository(root, approved_noreply=NOREPLY)
+            self.assertIn("history-github-token", {item.code for item in findings})
+
+    def test_unpublished_branch_is_outside_default_head_scan(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_repository(root, NOREPLY)
+            run_git(root, "switch", "-c", "private-experiment")
+            synthetic_token = "ghp_" + ("B" * 36)
+            (root / "experiment.txt").write_text(f"token={synthetic_token}\n", encoding="utf-8")
+            run_git(root, "add", "--", "experiment.txt")
+            run_git(root, "commit", "-m", "test: add branch-only fixture")
+            run_git(root, "switch", "main")
+
+            _, default_findings = preflight.inspect_repository(root, approved_noreply=NOREPLY)
+            self.assertNotIn("history-github-token", {item.code for item in default_findings})
+
+            _, branch_findings = preflight.inspect_repository(
+                root, approved_noreply=NOREPLY, requested_refs=["private-experiment"],
+            )
+            self.assertIn("history-github-token", {item.code for item in branch_findings})
+
+    def test_committed_only_ignores_unrelated_untracked_secret(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_repository(root, NOREPLY)
+            synthetic_token = "ghp_" + ("C" * 36)
+            (root / "local-notes.txt").write_text(f"token={synthetic_token}\n", encoding="utf-8")
+
+            _, worktree_findings = preflight.inspect_repository(root, approved_noreply=NOREPLY)
+            self.assertIn("github-token", {item.code for item in worktree_findings})
+
+            metadata, committed_findings = preflight.inspect_repository(
+                root, approved_noreply=NOREPLY, include_worktree=False,
+            )
+            self.assertNotIn("github-token", {item.code for item in committed_findings})
+            self.assertFalse(metadata["worktree_content_scanned"])
+
+    def test_large_extensionless_text_history_is_not_silently_skipped(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_repository(root, NOREPLY)
+            (root / "payload").write_text("plain text larger than test limit\n", encoding="utf-8")
+            run_git(root, "add", "--", "payload")
+            run_git(root, "commit", "-m", "test: add extensionless text")
+            (root / "payload").unlink()
+            run_git(root, "add", "--", "payload")
+            run_git(root, "commit", "-m", "test: remove extensionless text")
+
+            with patch.object(preflight, "MAX_TEXT_SCAN_BYTES", 8):
+                _, findings = preflight.inspect_repository(root, approved_noreply=NOREPLY)
+            self.assertIn("history-content-scan-incomplete", {item.code for item in findings})
 
     def test_account_resolution_requires_id_and_login_together(self) -> None:
         resolved, error = preflight.resolve_expected_noreply(None, "12345678", None)

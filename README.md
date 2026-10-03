@@ -2,20 +2,21 @@
 
 [English](README.en.md) | 简体中文
 
-一个面向 Codex 的 GitHub 项目规范发布 Skill。它以可审计、证据驱动的流程完成上传前检查、敏感信息门禁、README 与 Release 文案撰写、Conventional Commits 组织，以及经明确授权后的 GitHub 发布。
+一个面向普通项目作者的 Codex GitHub 发布助手。它可以只做上传前审计，也可以整理文档、组织提交、连接或创建仓库、推送分支并发布 Release；流程会按项目和请求的实际风险调整强度，同时保留敏感信息与误公开防线。
 
 ## 项目状态
 
-本仓库包含 GitHub Project Publisher 的 Skill 源码。当前版本为 [`v0.3.1`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.3.1)，版本说明见 [RELEASE_NOTES.md](RELEASE_NOTES.md)。
+本仓库包含 GitHub Project Publisher 的 Skill 源码。最新稳定版为 [`v0.3.1`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.3.1)；`main` 分支还包含下一版本的未发布改进，详见 [RELEASE_NOTES.md](RELEASE_NOTES.md)。
 
 ## 核心能力
 
 - 将任务区分为只读审计、本地准备、仓库发布和 Release 发布四种模式。
 - 检查 Git 状态、仓库卫生、文件大小、文档完整性、许可证状态和远程目标。
-- 对当前发布集合和所有可达历史文本 Blob 中的 API Key、令牌、密码、私钥、Session/Cookie、个人信息和支付凭证实施阻断式审查。
+- 对精确发布分支或 Tag 的当前内容与历史文本 Blob 实施敏感信息审查；不会把无关本地分支、Tag 或 stash 自动视为待上传内容。
+- 工作树与候选历史中完全相同的已跟踪 Blob 只扫描一次；检查结果绑定 ref OID、身份策略、配置、资产和目标，输入未变化时可复用证据。
 - 检查可发布日志、HAR、trace、dump、崩溃报告，以及源码中的敏感字段日志调用。
-- 新建仓库一律先以 Private 上传并完成全套审查，公开转换作为独立的最终人工决策。
-- 提交前以对话式选项选择 Git 身份：推荐 GitHub ID 型 noreply；个人邮箱可选，但会明确提示其将公开在 Git 元数据中。noreply 不仅检查格式，还必须与 `gh api user` 返回的账户 ID 和登录名一致。
+- 新建且最终需要公开的仓库先以 Private 上传和验证，公开转换作为独立最终决策；既有公开仓库沿用原有可见性和协作流程。
+- 仅在工作流需要创建新提交时选择并验证 Git 身份：推荐 GitHub ID 型 noreply，个人邮箱可选。既有贡献者、Bot、导入历史和 Tagger 身份作为来源信息报告，不因不同于当前发布者而阻断普通发布。
 - 对每个用户上传的 Release 资产计算 SHA-256，并与 GitHub 返回的远端 digest 比对。
 - 通过决策矩阵区分无需提问、二元确认、选项对话卡片、自由文本问题和宿主权限提示；该问的决策必须在变更前询问，卡片不得因界面容量遗漏实质方案，并为每个方案说明结果、理由、取舍与推荐度。
 - 根据代码、配置、测试和历史证据撰写 README 与 Release Notes，禁止虚构功能、兼容性和性能结论。
@@ -31,11 +32,10 @@
   → README 与 Release 文案准备
   → 精确审查发布集合
   → 选择并验证 Git 提交身份
-  → 创建 Private 仓库并上传
+  → 连接既有仓库，或按需创建 Private 仓库并上传
   → Release 资产 SHA-256 与远端 digest 比对
-  → 全新克隆和远程结果验证
-  → 对话式确认是否转为 Public
-  → Public 后匿名访问与安全功能复核
+  → 验证远程结果
+  → 新建公共仓库场景：全新克隆并确认是否转为 Public
 ```
 
 发现敏感信息或必要检查失败时，工作流必须停止。报告只包含风险类型和 `文件:行号`，不回显敏感原值。
@@ -49,9 +49,9 @@
 | Skill 结构与渐进式加载 | `SKILL.md` 声明名称、触发描述和工作流；细则拆分到 `references/`，确定性检查放入 `scripts/` | [OpenAI：Build skills](https://learn.chatgpt.com/docs/build-skills)、[Agent Skills Specification](https://agentskills.io/specification) |
 | GitHub 仓库治理 | 要求 README、有效忽略规则、必要验证、明确许可证状态，并区分阻断项、警告项与建议项 | [GitHub：Best practices for repositories](https://docs.github.com/en/repositories/creating-and-managing-repositories/best-practices-for-repositories)、[项目发布标准](github-project-publisher/references/standards.md) |
 | README 撰写 | 说明项目用途、价值、安装、最小用例、支持方式、维护状态和限制；所有结论必须有项目证据 | [GitHub：About READMEs](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes)、[本项目写作指南](github-project-publisher/references/writing-guide.md) |
-| 敏感信息与隐私门禁 | 检查当前文件、可达历史 Blob、凭证、个人信息、支付数据、日志成品和敏感日志调用；命中或检查失败时阻止发布 | [GitHub：Push protection](https://docs.github.com/en/code-security/concepts/secret-security/push-protection)、[本项目敏感信息审查](github-project-publisher/references/sensitive-data-review.md) |
-| Private-first 可见性 | 新仓库必须先 Private 上传、审查和全新克隆验证；转 Public 是独立的最终人工决策 | [GitHub：Setting repository visibility](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/setting-repository-visibility)、[GitHub CLI：`gh repo create`](https://cli.github.com/manual/gh_repo_create)、[安全发布手册](github-project-publisher/references/publishing-runbook.md) |
-| Git 提交邮箱隐私 | 优先使用当前账户的 `ID+USERNAME@users.noreply.github.com`；个人邮箱仅在明确选择并接受公开风险后使用，未获批准的身份仍会阻断 | [GitHub：Email addresses reference](https://docs.github.com/en/account-and-profile/reference/email-addresses-reference)、[本项目敏感信息审查](github-project-publisher/references/sensitive-data-review.md) |
+| 敏感信息与隐私门禁 | 检查精确候选 refs 的当前文件与历史 Blob，以及凭证、个人信息、支付数据、日志成品和敏感日志调用；候选内容命中或必要检查失败时阻止发布 | [GitHub：Push protection](https://docs.github.com/en/code-security/concepts/secret-security/push-protection)、[本项目敏感信息审查](github-project-publisher/references/sensitive-data-review.md) |
+| Private-first 可见性 | 新建且计划公开的仓库先 Private 上传和验证；既有仓库保留其可见性和协作方式 | [GitHub：Setting repository visibility](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/setting-repository-visibility)、[GitHub CLI：`gh repo create`](https://cli.github.com/manual/gh_repo_create)、[安全发布手册](github-project-publisher/references/publishing-runbook.md) |
+| Git 提交邮箱隐私 | 为本工作流创建的新提交优先使用当前账户的 `ID+USERNAME@users.noreply.github.com`；个人邮箱需接受公开风险；既有协作身份默认保留并作为来源信息报告 | [GitHub：Email addresses reference](https://docs.github.com/en/account-and-profile/reference/email-addresses-reference)、[Git 身份策略](github-project-publisher/references/identity-policy.md) |
 | 人机决策边界 | “做不做”使用必要的二元确认，“怎么做/选哪个”必须使用结构化选择；当 `request_user_input` 可用且语义条件满足时必须真实调用；Skill 不能自行开启 Plan 模式或宿主控件；确定性默认动作自动执行但记录依据、范围和结果 | [OpenAI：Plan mode](https://developers.openai.com/blog/run-long-horizon-tasks-with-codex)、[交互与决策策略](github-project-publisher/references/interaction-policy.md) |
 | Skill 行为验证 | 以直接触发、隐式触发、负向触发、不完整输入、结构化卡片、宿主权限和阻断场景组成行为语料；普通 CI 校验语料，手动 CI 可运行真实 Codex eval | [OpenAI：Testing Agent Skills Systematically with Evals](https://developers.openai.com/blog/eval-skills)、[行为 eval 说明](evals/README.md) |
 | Commit 规范 | 使用 `type(scope)!: subject`、可选 body/footer 和 `BREAKING CHANGE`；提交必须保持单一意图 | [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/)、[commitlint config-conventional](https://github.com/conventional-changelog/commitlint/tree/master/@commitlint/config-conventional)、[本项目 Commit 规范](github-project-publisher/references/commit-conventions.md) |
@@ -76,6 +76,7 @@ github-project-publisher/
 │   └── openai.yaml
 ├── references/
 │   ├── commit-conventions.md
+│   ├── identity-policy.md
 │   ├── interaction-policy.md
 │   ├── publishing-runbook.md
 │   ├── sensitive-data-review.md
@@ -139,16 +140,22 @@ $github-project-publisher 将当前项目安全发布到 OWNER/REPOSITORY：先�
 python .\github-project-publisher\scripts\preflight.py .
 ```
 
-预检会使用 `gh api user` 验证 noreply 地址属于当前认证账户。如果 `gh` 不在 `PATH`，可传入：
+默认命令以只读报告模式扫描 `HEAD`，不要求 GitHub 登录。发布其他分支或 Tag 时用可重复的 `--ref` 指定精确候选：
 
 ```powershell
-python .\github-project-publisher\scripts\preflight.py . --gh "C:\path\to\gh.exe"
+python .\github-project-publisher\scripts\preflight.py . --committed-only --ref main --ref v1.0.0
+```
+
+在创建提交前选择 noreply 身份时，使用 `--identity-policy noreply`；预检会通过 `gh api user` 验证地址属于当前认证账户。如果 `gh` 不在 `PATH`，可传入：
+
+```powershell
+python .\github-project-publisher\scripts\preflight.py . --ref main --identity-policy noreply --gh "C:\path\to\gh.exe"
 ```
 
 可信 CI 可以显式传入已核验的账户信息：
 
 ```powershell
-python .\github-project-publisher\scripts\preflight.py . --expected-github-id 12345678 --expected-github-login USERNAME
+python .\github-project-publisher\scripts\preflight.py . --ref main --identity-policy noreply --expected-github-id 12345678 --expected-github-login USERNAME
 ```
 
 JSON 输出：
@@ -163,7 +170,7 @@ python .\github-project-publisher\scripts\preflight.py . --format json
 - `1`：发现阻断项，不得提交或发布。
 - `2`：扫描未能完成，按阻断项处理。
 
-预检默认要求属于已核验账户的 GitHub ID 型 noreply，并自动扫描所有可达历史文本 Blob。用户明确选择个人邮箱后，可加 `--identity-policy configured`：仅仓库当前配置的邮箱与属于已核验账户的 ID 型 noreply 被接受，其他历史身份仍会阻断；报告不会回显实际邮箱或敏感值。
+预检默认使用 `--identity-policy report`，扫描当前工作树、非忽略未跟踪文件和 `HEAD`，不会因既有贡献者身份不同而阻断。最终推送前使用 `--committed-only` 将门禁限定到指定 refs。创建新提交前使用 `--identity-policy noreply` 或在明确选择个人邮箱后使用 `--identity-policy configured`。只有用户明确要求单作者或历史匿名化门禁时才加 `--history-identity-policy strict`。报告不会回显实际邮箱或敏感值。
 
 ## 开发与验证
 
@@ -195,10 +202,10 @@ python .\github-project-publisher\scripts\release_integrity.py OWNER/REPO TAG .\
 ## 局限性
 
 - 模式扫描无法证明项目绝对不存在敏感信息。
-- 历史扫描覆盖可达的文本 Blob；二进制、图片、压缩包、加密内容和专有格式仍需人工或领域工具检查。
-- 图片、压缩包、加密内容、专有二进制格式和跨变量拼接的秘密需要人工或领域工具检查。
+- 历史扫描覆盖所选发布 refs 可达的文本 Blob；二进制、图片、压缩包、加密内容和专有格式仍需人工或领域工具检查。
+- 无关本地 refs 默认不扫描；如果计划执行 `--all`、`--mirror` 或多 ref 推送，必须显式把它们纳入候选审查。
 - 本 Skill 不自带 GitHub 账户权限；发布仍依赖本机 Git、GitHub CLI 或已配置的连接能力。
-- 默认 noreply 政策会阻断其他历史身份；个人邮箱模式只放行明确选择的仓库配置邮箱。是否重写已发布历史属于破坏性决策，必须另行授权。
+- 既有协作身份默认作为来源信息保留。只有明确请求严格单身份历史审查时才阻断不匹配身份；任何历史重写都必须另行授权。
 - 仓库专属的测试、构建、许可证和发布策略始终优先于通用建议。
 
 ## 许可证

@@ -1,6 +1,6 @@
-# Skill behavior evals
+# Skill interaction-policy evals
 
-`cases.jsonl` covers direct and implicit activation, negative activation, incomplete input, every interaction route, `request_user_input` availability, mandatory checks, and blocker behavior.
+`cases.jsonl` checks activation and interaction routing: direct and implicit activation, negative activation, incomplete input, each interaction route, `request_user_input` availability, and blocker behavior. It does not replace the deterministic temporary-repository tests in `github-project-publisher/tests/`, which validate publication-ref scoping, identity handling, historical scanning, and Release asset integrity.
 
 Validate the corpus without model access:
 

@@ -2,20 +2,21 @@
 
 English | [简体中文](README.md)
 
-A Codex skill for disciplined GitHub project publication. It applies an auditable, evidence-based workflow to pre-publication review, sensitive-data gating, README and release-note authorship, Conventional Commits, and explicitly authorized GitHub publication.
+A Codex GitHub publishing assistant for ordinary project authors. It can perform a read-only preflight, prepare repository-facing material, organize commits, connect or create a repository, push branches, and publish Releases. The workflow scales with the actual request and risk while preserving strong safeguards against sensitive-data leaks and accidental disclosure.
 
 ## Project status
 
-This repository contains the GitHub Project Publisher skill source. The current version is [`v0.3.1`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.3.1); see [RELEASE_NOTES.md](RELEASE_NOTES.md) for details.
+This repository contains the GitHub Project Publisher skill source. The latest stable release is [`v0.3.1`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.3.1); `main` also contains unreleased improvements for the next version, documented in [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
 ## Capabilities
 
 - Separates audit-only, local preparation, repository publication, and Release publication modes.
 - Reviews Git state, repository hygiene, file sizes, documentation completeness, license status, and remote targets.
-- Blocks publication on potential API keys, tokens, passwords, private keys, sessions/cookies, personal data, and payment credentials in the current publication set and every reachable historical text blob.
+- Reviews current content and historical text blobs reachable from the exact branches or Tags selected for publication; unrelated local branches, Tags, and stashes are not treated as upload candidates.
+- Scans an unchanged tracked Blob only once across worktree and candidate history, and reuses check evidence while ref OIDs, identity policy, configuration, assets, and destination remain unchanged.
 - Reviews publishable logs, HAR files, traces, dumps, crash reports, and source code that logs sensitive fields.
-- Creates every new repository as private, completes review there, and keeps public conversion as a separate final decision.
-- Selects Git identity through a conversational choice before commit: GitHub ID-based noreply is recommended, while a personal address is optional with a public-metadata warning. A noreply address must match the account ID and login returned by `gh api user`, not merely the expected syntax.
+- Creates a new repository privately first when its intended end state is public; existing public repositories keep their established visibility and collaboration workflow.
+- Selects and verifies Git identity only when the workflow must create a commit. Existing contributors, bots, imported history, and Taggers are reported as provenance and do not block ordinary publication merely because they differ from the current publisher.
 - Computes SHA-256 for every user-uploaded Release asset and compares it with GitHub's remote digest.
 - Uses a decision matrix to distinguish no-question paths, binary confirmation, option cards, free-form questions, and host permissions; required decisions stop before mutation, no material option is dropped for UI capacity, and every option explains its outcome, rationale, tradeoff, and recommendation level.
 - Drafts README and Release Notes from code, configuration, test, and history evidence without inventing features, compatibility, or performance claims.
@@ -31,11 +32,10 @@ Inventory the project
   → prepare README and Release text
   → review the exact publication set
   → select and verify Git commit identity
-  → create and upload to a private repository
+  → connect an existing repository or create a private destination when needed
   → compare Release asset SHA-256 values with remote digests
-  → verify a fresh clone and remote state
-  → ask whether to convert to public
-  → recheck anonymous access and security features
+  → verify remote state
+  → for a newly created public destination, verify a fresh clone and ask whether to convert it
 ```
 
 The workflow must stop when sensitive data is detected or a required check cannot complete. Reports include only the category and `path:line`; matched values are never printed.
@@ -49,9 +49,9 @@ This project does not treat a single blog post or personal preference as a unive
 | Skill structure and progressive disclosure | `SKILL.md` defines identity, activation, and workflow; detailed policy lives in `references/`, while deterministic checks live in `scripts/` | [OpenAI: Build skills](https://learn.chatgpt.com/docs/build-skills), [Agent Skills Specification](https://agentskills.io/specification) |
 | GitHub repository governance | Require a README, effective ignore rules, applicable verification, and explicit license status; classify blockers, warnings, and advisories | [GitHub: Best practices for repositories](https://docs.github.com/en/repositories/creating-and-managing-repositories/best-practices-for-repositories), [project publication standards](github-project-publisher/references/standards.md) |
 | README authorship | Explain purpose, value, installation, minimal use, support, maintenance status, and limitations; ground claims in repository evidence | [GitHub: About READMEs](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes), [project writing guide](github-project-publisher/references/writing-guide.md) |
-| Sensitive-data and privacy gate | Inspect current files, reachable historical blobs, credentials, personal information, payment data, captured logs, and sensitive logging calls; block on a finding or incomplete check | [GitHub: Push protection](https://docs.github.com/en/code-security/concepts/secret-security/push-protection), [project sensitive-data review](github-project-publisher/references/sensitive-data-review.md) |
-| Private-first visibility | Upload and review every new repository privately, including a fresh clone; treat public conversion as a separate final decision | [GitHub: Setting repository visibility](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/setting-repository-visibility), [GitHub CLI: `gh repo create`](https://cli.github.com/manual/gh_repo_create), [safe publishing runbook](github-project-publisher/references/publishing-runbook.md) |
-| Git identity privacy | Prefer the current account's `ID+USERNAME@users.noreply.github.com`; use a personal address only after an explicit choice and public-exposure warning, while still blocking unapproved identities | [GitHub: Email addresses reference](https://docs.github.com/en/account-and-profile/reference/email-addresses-reference), [project sensitive-data review](github-project-publisher/references/sensitive-data-review.md) |
+| Sensitive-data and privacy gate | Inspect current files and historical blobs reachable from the exact candidate refs, plus credentials, personal information, payment data, captured logs, and sensitive logging calls; block candidate findings or incomplete required checks | [GitHub: Push protection](https://docs.github.com/en/code-security/concepts/secret-security/push-protection), [project sensitive-data review](github-project-publisher/references/sensitive-data-review.md) |
+| Private-first visibility | Upload a newly created public destination privately first; preserve the visibility and collaboration workflow of existing repositories | [GitHub: Setting repository visibility](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/setting-repository-visibility), [GitHub CLI: `gh repo create`](https://cli.github.com/manual/gh_repo_create), [safe publishing runbook](github-project-publisher/references/publishing-runbook.md) |
+| Git identity privacy | Prefer the current account's `ID+USERNAME@users.noreply.github.com` for new workflow-created commits; allow a selected personal address with a warning; retain existing collaborative identities as provenance | [GitHub: Email addresses reference](https://docs.github.com/en/account-and-profile/reference/email-addresses-reference), [Git identity policy](github-project-publisher/references/identity-policy.md) |
 | Human decision boundary | Use binary confirmation for a true proceed/cancel checkpoint and structured selection for how/which decisions; when `request_user_input` is available and the semantic test passes, call it directly; the Skill cannot enable Plan mode or host controls; trace deterministic defaults without asking | [OpenAI: Plan mode](https://developers.openai.com/blog/run-long-horizon-tasks-with-codex), [interaction and decision policy](github-project-publisher/references/interaction-policy.md) |
 | Skill behavior verification | Maintain cases for direct, implicit, negative, incomplete-input, structured-card, host-permission, and blocker behavior; ordinary CI validates the corpus and optional manual CI runs live Codex evals | [OpenAI: Testing Agent Skills Systematically with Evals](https://developers.openai.com/blog/eval-skills), [behavior eval guide](evals/README.md) |
 | Commit convention | Use `type(scope)!: subject`, optional body/footer, and `BREAKING CHANGE`; keep each commit focused on one intent | [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/), [commitlint config-conventional](https://github.com/conventional-changelog/commitlint/tree/master/@commitlint/config-conventional), [project commit convention](github-project-publisher/references/commit-conventions.md) |
@@ -76,6 +76,7 @@ github-project-publisher/
 │   └── openai.yaml
 ├── references/
 │   ├── commit-conventions.md
+│   ├── identity-policy.md
 │   ├── interaction-policy.md
 │   ├── publishing-runbook.md
 │   ├── sensitive-data-review.md
@@ -139,16 +140,22 @@ From this repository root:
 python .\github-project-publisher\scripts\preflight.py .
 ```
 
-Preflight uses `gh api user` to verify that noreply addresses belong to the authenticated account. If `gh` is not on `PATH`, pass its path:
+The default command scans `HEAD` in report-only identity mode and does not require GitHub authentication. Use repeatable `--ref` options for the exact branches or Tags to publish:
 
 ```powershell
-python .\github-project-publisher\scripts\preflight.py . --gh "C:\path\to\gh.exe"
+python .\github-project-publisher\scripts\preflight.py . --committed-only --ref main --ref v1.0.0
+```
+
+Before creating a commit with a noreply identity, use `--identity-policy noreply`; preflight then uses `gh api user` to verify ownership. If `gh` is not on `PATH`, pass its path:
+
+```powershell
+python .\github-project-publisher\scripts\preflight.py . --ref main --identity-policy noreply --gh "C:\path\to\gh.exe"
 ```
 
 Trusted CI may provide independently verified account metadata:
 
 ```powershell
-python .\github-project-publisher\scripts\preflight.py . --expected-github-id 12345678 --expected-github-login USERNAME
+python .\github-project-publisher\scripts\preflight.py . --ref main --identity-policy noreply --expected-github-id 12345678 --expected-github-login USERNAME
 ```
 
 For JSON output:
@@ -163,7 +170,7 @@ Exit codes:
 - `1`: blockers were found; do not commit or publish.
 - `2`: the scan could not complete; treat it as a blocker.
 
-Preflight requires an ID-based noreply address owned by the verified GitHub account and scans every reachable historical text blob. After an explicit personal-email choice, add `--identity-policy configured`: only the repository-local email and an ID-based noreply identity owned by the verified account are accepted, while other historical identities still block. Reports never print an address or matched sensitive value.
+Preflight defaults to `--identity-policy report` and scans the worktree, non-ignored untracked files, and `HEAD`; it does not block because existing contributor identities differ. Use `--committed-only` for the final push gate so only selected refs are candidates. Before creating a commit, use `--identity-policy noreply` or, after an explicit personal-email choice, `--identity-policy configured`. Use `--history-identity-policy strict` only for an explicitly requested single-identity or history-anonymization gate. Reports never print an address or matched sensitive value.
 
 ## Development and validation
 
@@ -195,10 +202,10 @@ The scanner never prints matched sensitive values. If a real credential has ente
 ## Limitations
 
 - Pattern matching cannot prove that a repository contains no sensitive data.
-- Historical scanning covers reachable text blobs; binaries, images, archives, encrypted content, and proprietary formats still require manual or domain-specific inspection.
+- Historical scanning covers text blobs reachable from the selected publication refs; binaries, images, archives, encrypted content, and proprietary formats still require manual or domain-specific inspection.
 - Images, archives, encrypted content, proprietary binary formats, and secrets assembled across variables require manual or domain-specific inspection.
 - This skill does not grant GitHub account access; publication still depends on local Git, GitHub CLI, or configured connector capabilities.
-- The default noreply policy blocks other historical identities; personal-email mode permits only the explicitly selected repository-local address. Rewriting published history is destructive and always requires separate authorization.
+- Existing collaborative identities are retained as provenance by default. Only an explicitly requested strict single-identity review blocks mismatches; any history rewrite requires separate authorization.
 - Repository-specific testing, build, licensing, and release policies take precedence over general guidance.
 
 ## License

@@ -1,3 +1,33 @@
+# Unreleased
+
+本轮调整将 Skill 从默认高强度的单作者发布门禁，改为面向普通项目的风险自适应 GitHub 发布助手。
+
+### 中文变更摘要
+
+- 预检默认扫描工作树与 `HEAD`，最终推送门禁可用 `--committed-only --ref REF` 精确限定待发布分支或 Tag；无关本地 refs 不再阻断普通发布。
+- 既有 Author、Committer、Tagger、Bot 和导入历史默认作为来源信息报告，不再因为不同于当前发布者而阻断；显式的 `--history-identity-policy strict` 保留单身份审查能力。
+- 只读审计使用 `--identity-policy report`，无需 GitHub 登录；noreply 所属账户验证仍用于工作流创建的新提交。
+- 大型无扩展名历史文本不再静默跳过；符号链接按链接本身检查，不跟随到仓库外部。
+- 新建且准备公开的仓库继续采用 Private-first 和最终公开确认；既有公开仓库沿用原有可见性与协作流程。
+- 默认 Skill 提示改为只读审计，不再隐含授权创建或上传仓库。
+- 工作树中与候选历史完全相同的已跟踪 Blob 只扫描一次；已修改文件仍会同时检查新工作树内容与旧候选历史，避免去重掩盖已删除的秘密。
+- 检查证据现在绑定候选 ref OID、身份策略、配置、资产、目标和远端状态；输入未变化时复用结果，不再为每个操作节点重复全文扫描。
+- 身份、交互、敏感数据和外部发布规则已收敛到各自的单一参考文件，减少运行时上下文和多文件规则漂移。
+
+### English summary
+
+- Preflight now separates worktree review from the final `--committed-only --ref REF` push gate, so unrelated local refs do not block ordinary publication.
+- Existing contributors, bots, imported history, and Taggers are provenance advisories by default; strict single-identity history review remains explicitly available.
+- Read-only audits use report-only identity mode without GitHub authentication, while new workflow-created commits retain verified identity checks.
+- Large extensionless historical text is no longer silently skipped, and symbolic links are inspected without following targets outside the repository.
+- Private-first remains the safeguard for newly created public destinations; existing repositories preserve their visibility and collaboration workflow.
+- The default Skill prompt is audit-only and no longer implies authorization to create or upload a repository.
+- Tracked worktree content identical to a candidate-history Blob is scanned once; modified files still trigger checks of both new worktree content and old candidate history.
+- Check evidence is now tied to ref OIDs, identity policy, relevant configuration, assets, destination, and remote state, so unchanged inputs do not trigger repeated full scans.
+- Identity, interaction, sensitive-data, and external-publication rules now have focused authoritative references, reducing runtime context and policy drift.
+
+---
+
 # GitHub Project Publisher v0.3.1
 
 发布类型：`稳定版 / Stable`

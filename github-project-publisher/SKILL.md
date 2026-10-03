@@ -1,95 +1,49 @@
 ---
 name: github-project-publisher
-description: Audit and prepare a local software project for a disciplined GitHub publication, including repository hygiene, Conventional Commit messages, README authorship, release notes, versioning, and authorized repository, push, tag, or GitHub Release operations. Use when Codex is asked to check a project before upload or publish it to GitHub; do not use for an isolated Git command or a routine code edit with no publication intent.
+description: Audit, prepare, and publish local software projects to GitHub, from a routine first upload through versioned Releases. Use when Codex is asked to check a project for GitHub, improve repository-facing documentation, create or connect a repository, push a branch, or publish a Release. Do not use for an isolated Git command or routine code edit with no publication intent.
 ---
 
 # GitHub Project Publisher
 
-Produce a repository that is safe to disclose, reproducible to use, accurately documented, and traceable to a verified revision. Treat publication as a sequence of evidence-backed gates rather than a file upload.
+Help ordinary project authors publish safely without requiring Git or security expertise. Match the workflow to the request and risk; preserve privacy gates without treating normal collaboration or unrelated local refs as publication failures.
 
-## Select the requested mode
+## Choose the narrowest mode
 
 - **Audit:** inspect and report; make no project or remote changes.
-- **Prepare:** audit, edit repository-facing documents and configuration, and verify locally; do not publish.
-- **Publish repository:** prepare, then create or connect the intended GitHub repository and push only after the target is verified and the action is authorized.
-- **Publish release:** prepare a versioned release and notes, then tag/publish only after the exact version, target commit, and release state are verified and authorized.
+- **Prepare:** audit, improve repository-facing files, and verify locally; do not commit or publish unless requested.
+- **Publish repository:** prepare as needed, then push the exact authorized branch or refs to a verified destination.
+- **Publish release:** verify a version, Tag, notes, and assets, then create or publish the requested GitHub Release.
 
-Infer the narrowest mode that fulfills the request. An explicit request to publish authorizes preparation and private upload, but never a direct public repository creation. Create every new GitHub repository as private, finish upload and verification there, and treat conversion to public as a separate final gate.
+A request to publish authorizes ordinary in-scope preparation and a non-force push, not destructive history changes, destination overwrite, or an unrequested visibility change. Create a new destination privately first only when its requested end state is public; verify it before asking for the final public conversion. Preserve an existing repository's visibility and workflow.
 
-Read [references/interaction-policy.md](references/interaction-policy.md) before asking the user anything during preparation or publication. Route each interaction among: no question, binary confirmation, structured option card, free-form question, or native host permission. A material unresolved “how/which” decision MUST be asked before crossing its mutation boundary. Inspect the tools available in the current turn: when `request_user_input` or an equivalent structured-input tool is available, MUST call it and MUST NOT imitate a card in prose. The skill cannot enable Plan mode or add unavailable host tools; if structured input is absent, follow the host's narrowest supported interaction and stop before mutation. Enumerate every evidence-backed material alternative before adapting the decision to the surface, and never omit a real option merely to meet a card-size limit. Do not reduce a material choice to approval/rejection, and do not invent alternatives for a genuine “proceed/cancel” checkpoint. Perform mandatory deterministic checks without asking, but record the chosen default, its basis, scope, and result in the publication trace.
+Read [references/interaction-policy.md](references/interaction-policy.md) only when a consequential choice is unresolved.
 
-## Establish evidence
+## Establish and verify the candidate
 
-1. Read repository instructions and inspect the project tree, Git status, branches, remotes, tags, recent commits, build metadata, CI, ignore rules, and existing community files.
-2. Run `python scripts/preflight.py <repository>` from this skill. It scans the current publication set and reachable historical blobs, and verifies noreply ownership against the authenticated GitHub account. Use `--gh PATH` when GitHub CLI is not on `PATH`; CI may instead provide both `--expected-github-id` and `--expected-github-login`. A pre-publication run MUST exit with code 0; exit code 1 means blockers were found and exit code 2 means the inspection could not complete. Treat it as a conservative baseline, not a substitute for repository-specific checks.
-3. Discover the project's own lint, test, type-check, build, package, and documentation commands. Run the checks appropriate to the changed surface. Do not install dependencies or alter toolchains unless the request authorizes that work.
-4. Require the automated reachable-history scan to complete, then supplement it with any repository-configured secret scanner and contextual review. Inspect logging statements and publishable log, trace, dump, HAR, crash, and diagnostic artifacts for credentials, personal data, and payment data. Never print a detected value. If a real credential may have entered Git history, stop publication and recommend revocation/rotation before history repair.
-5. Inspect effective Git identity, every reachable commit's Author and Committer, and annotated Tag taggers. Before the first publication commit, obtain or reuse an explicit identity choice: recommend the authenticated account's ID-based GitHub noreply address, but allow the exact repository-configured personal email after warning that it becomes public Git metadata.
-6. Report findings as **blocker**, **warning**, or **advisory**, with file/command evidence and a concrete remedy. Distinguish verified facts from inferences and unverified items.
+1. Read repository instructions and identify the root, worktree state, exact branch/Tag/commit, staged paths, Release assets, destination, and refspec relevant to the request.
+2. During preparation, run `python scripts/preflight.py <repository>` to inspect the worktree, non-ignored untracked files, and `HEAD`. Before pushing committed refs, run `python scripts/preflight.py <repository> --committed-only --ref <candidate-ref>` for every ref in the planned push.
+3. Run the project's relevant lint, test, type-check, build, package, and documentation checks. Do not install dependencies or alter toolchains unless authorized.
+4. Report **blocker**, **warning**, and **advisory** findings with evidence and remedies. Read [references/standards.md](references/standards.md) for acceptance criteria.
 
-Read [references/standards.md](references/standards.md) for the normative quality model and acceptance gates. Use project-specific conventions when they are stricter.
+Treat successful checks as evidence tied to their inputs. Re-run only checks invalidated by a change to worktree/staged content, resolved ref OIDs, identity policy, relevant configuration, assets, destination, or remote state. Never reuse incomplete or failed evidence. A final committed-ref preflight is still required after creating a commit because the candidate ref changed.
 
-## Enforce the sensitive-data gate
+## Protect sensitive data
 
-Read [references/sensitive-data-review.md](references/sensitive-data-review.md) before any commit, push, tag, Release, or change from private to public visibility.
+Read [references/sensitive-data-review.md](references/sensitive-data-review.md) when auditing privacy or before commit, push, Tag, Release, or public conversion. Block candidate credentials, private keys, sessions/cookies, credential-bearing URLs, private personal records, payment data, unsafe sensitive logging, and incomplete required scans. Never print a detected value or matching line. If a real credential may have entered candidate history, recommend revocation or rotation before history repair.
 
-Treat a potential API key, authentication token, private key, password, session/cookie, credential-bearing URL, personal identifier, personal contact/address data in logs, payment-card/bank identifier, payment security code, live payment-provider key, or code that logs sensitive fields as a blocker. A failed, interrupted, incomplete, or unreadable required scan is also a blocker.
-
-Treat an Author, Committer, or annotated Tag tagger outside the selected identity policy as a privacy blocker. Under the recommended policy, only GitHub ID-based noreply identities pass. Under an explicitly selected personal-email policy, the exact repository-configured email and ID-based noreply identities pass; other addresses remain blockers. Report only the commit SHA or ref name and role; never echo an address.
-
-Report only the finding category and location as `path:line`, plus a remediation. Redact the value completely; do not quote the matching line, include surrounding context, place it in a diff summary, or copy it into issues, commits, README text, Release notes, terminal output, or chat. A suspected false positive requires human review of the local file and an explicit disposition; never weaken or bypass the gate automatically.
+Scan only refs included by the planned push unless the user requests a whole-repository audit. Treat existing contributor identities as provenance; apply [references/identity-policy.md](references/identity-policy.md) only before creating a commit or annotated Tag, or for an explicitly requested identity audit.
 
 ## Prepare repository-facing material
 
-- Preserve correct existing content and the project's established language. For a broad audience, a concise primary language plus a linked translation is preferable to interleaving every paragraph twice.
-- Base all claims on code, configuration, tests, or user-provided facts. Do not invent support levels, performance results, compatibility, citations, contributors, or roadmap commitments.
-- Write the README for first successful use: identity, purpose, status, prerequisites, installation, a minimal verified example, configuration, validation, support, limitations, contribution, security, and license information as applicable.
-- Keep commands copyable from a fresh checkout. Mark shell and platform assumptions. Explain expected output when it helps users verify success.
-- Write release notes from the diff, commits, changelog, issues/PRs, and test evidence. Separate user-visible changes from internal maintenance; state breaking changes, migration, known issues, and verification honestly.
-- Do not select or change a license without the rights holder's explicit choice. Do not imply that source availability grants reuse rights.
+Preserve correct content and established language. Ground claims in code, configuration, tests, or user-provided facts. Do not invent compatibility, performance, citations, contributors, support levels, or roadmap commitments. Do not select a license for the rights holder.
 
-Read [references/writing-guide.md](references/writing-guide.md) before drafting or substantially rewriting a README or release notes.
+- Before substantially rewriting a README or release notes, read [references/writing-guide.md](references/writing-guide.md).
+- Before creating a commit, read [references/commit-conventions.md](references/commit-conventions.md), stage explicit paths, and inspect the staged diff.
 
-## Review the exact publication set
+## Publish and verify
 
-Before any commit, push, tag, or release:
+Read [references/publishing-runbook.md](references/publishing-runbook.md) only for external repository, push, Tag, visibility, or Release operations. Prefer non-interactive `gh` and `git` after verifying authentication and destination. Never expose tokens, force-push, rewrite published history, replace a Tag or Release, change visibility, or overwrite a non-empty destination unless that exact action is separately requested and understood.
 
-1. Re-run relevant checks and the preflight script; require exit code 0. Any sensitive-data finding or required-check failure stops the workflow before staging or committing.
-2. Inspect `git status`, unstaged diff, staged diff, and untracked files. Stage explicit paths; do not use broad staging when unrelated user changes exist.
-3. Confirm that generated artifacts, local state, datasets, credentials, personal information, and licensed third-party material are intentionally included or excluded.
-4. Ensure version declarations, changelog/release notes, tag, package metadata, and documentation agree.
-5. Identify the exact branch and commit to publish. Confirm the remote URL, repository owner/name, visibility, and whether the destination already contains commits.
-6. For a newly created destination, verify it is private before the first push. Before public conversion, verify the private remote and a fresh clone contain only the intended refs and objects.
+After pushing, fetch or view the remote ref and compare it with the intended commit. A fresh clone is additionally required only for a newly created private destination before public conversion or when checkout/reproducibility is itself at risk. For user-supplied Release assets, run `scripts/release_integrity.py OWNER/REPO TAG [FILES...]`; missing assets or digests, mismatches, and incomplete verification block publication.
 
-Do not proceed while a blocker remains. Warnings require an explicit, recorded disposition; advisories may be deferred.
-
-## Prepare coherent commits
-
-Read [references/commit-conventions.md](references/commit-conventions.md) before proposing or creating a commit. Follow a repository's documented commit convention when it is stricter or intentionally different; otherwise use the provided Conventional Commits profile.
-
-Build each commit from one coherent intent. Select explicit paths, inspect the staged diff, and derive the type, scope, subject, body, and footers from that diff. Do not hide unrelated changes in a documentation or release commit. Validate the message with the repository's configured commitlint/Commitizen workflow when present, and do not install optional commit tooling merely to create one message.
-
-Before committing through GitHub publication mode, use a structured choice/card for identity when the user has not already selected one. Offer **GitHub ID-based noreply (Recommended)** and **Personal email (Caution)**. Noreply is the recommended card option, not implied consent: do not select it automatically when no identity decision is recorded. Warn that a personal address becomes durable public Git metadata, then configure the selected identity at repository scope and ensure both Author and Committer use it; `--author` alone is insufficient because it does not set the Committer. Run preflight with its default `noreply` policy, or with `--identity-policy configured` only after the personal-email choice. The identity scan MUST pass before commit, push, tag, Release, or public conversion.
-
-## Execute external publication safely
-
-Read [references/publishing-runbook.md](references/publishing-runbook.md) whenever creating a remote repository, pushing, tagging, or creating a GitHub Release.
-
-Prefer `gh` and `git` non-interactively after checking authentication and target identity. Do not use browser automation when the CLI can complete the operation; a browser is a fallback for interactive authentication or a capability unavailable through the CLI. Use least privilege. Never expose tokens in commands or output. Never force-push, rewrite published history, delete/replace a tag or release, change visibility, or overwrite a non-empty destination unless that exact action is separately requested and its impact is understood.
-
-Upload a new repository privately even when the requested end state is public. After private upload, run the full gate, verify a fresh clone, summarize evidence, and obtain an explicit final public-conversion decision. Do not collapse repository creation and visibility conversion into one mutation.
-
-Every user-supplied Release asset MUST receive a local SHA-256 digest and a post-upload comparison with GitHub's remote asset digest. Run `scripts/release_integrity.py OWNER/REPO TAG [FILES...]` after upload and before publishing a draft. Exit code 1 or 2 blocks publication. When there are no uploaded assets, run the verifier without files and report that asset hashing is not applicable; GitHub-generated source archives are not user-supplied Release assets.
-
-## Deliver a publication record
-
-Return:
-
-- publication mode and outcome;
-- blocker/warning/advisory summary and any accepted residual risk;
-- files changed and checks run, including failures or omissions;
-- user decisions and automatically applied defaults, including the evidence, scope, and outcome of each consequential default;
-- published branch and commit SHA, repository URL, and release/tag URL when applicable;
-- concise rollback or correction guidance for any external mutation.
-
-Do not claim success until the remote branch or release is fetched/viewed and shown to reference the intended commit.
+Return a proportional record: mode and outcome, unresolved risks, files changed, checks run or reused, evidence inputs, consequential decisions, published refs and commit SHA, URLs, and correction guidance. Do not claim success until the remote result is verified.

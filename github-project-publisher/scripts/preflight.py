@@ -164,13 +164,15 @@ def scan_git_identities(
     findings: list[Finding],
     metadata: dict[str, object],
     identity_policy: str,
+    history_identity_policy: str,
     approved_noreply: str | None,
     account_error: str | None,
+    publication_refs: list[str],
 ) -> None:
     code, configured_email = git(root, "config", "--local", "--get", "user.email")
     metadata["identity_policy"] = identity_policy
     metadata["github_account_verified"] = approved_noreply is not None
-    if approved_noreply is None:
+    if identity_policy != "report" and approved_noreply is None:
         findings.append(Finding(
             "blocker", "github-account-unverified",
             account_error or "Authenticated GitHub account ownership could not be verified.",
@@ -178,9 +180,16 @@ def scan_git_identities(
         ))
     metadata["local_noreply_configured"] = code == 0 and is_id_noreply(configured_email)
     if code != 0 or not configured_email:
+        severity = "advisory" if identity_policy == "report" else "blocker"
         findings.append(Finding(
-            "blocker", "git-email-not-configured",
-            "Repository-local Git email is missing; configure the explicitly selected publication identity.",
+            severity, "git-email-not-configured",
+            "Repository-local Git email is missing; configure an identity before creating a publication commit.",
+            "git-config:user.email",
+        ))
+    elif identity_policy == "report" and not is_id_noreply(configured_email):
+        findings.append(Finding(
+            "warning", "git-email-public",
+            "The repository-local Git email is a personal address and will be public in new commit metadata; value intentionally redacted.",
             "git-config:user.email",
         ))
     elif identity_policy == "noreply" and not is_id_noreply(configured_email):
@@ -189,7 +198,7 @@ def scan_git_identities(
             "Repository-local Git email is not an ID-based GitHub noreply address; value intentionally redacted.",
             "git-config:user.email",
         ))
-    elif is_id_noreply(configured_email) and approved_noreply and normalized_email(configured_email) != normalized_email(approved_noreply):
+    elif identity_policy != "report" and is_id_noreply(configured_email) and approved_noreply and normalized_email(configured_email) != normalized_email(approved_noreply):
         findings.append(Finding(
             "blocker", "git-email-account-mismatch",
             "Repository-local noreply email does not belong to the authenticated GitHub account; value intentionally redacted.",
@@ -202,7 +211,10 @@ def scan_git_identities(
             "git-config:user.email",
         ))
 
-    code, history = git(root, "log", "--all", "--format=%H%x09%ae%x09%ce")
+    if publication_refs:
+        code, history = git(root, "log", *publication_refs, "--format=%H%x09%ae%x09%ce")
+    else:
+        code, history = 0, ""
     if code != 0:
         findings.append(Finding("blocker", "git-identity-scan-failed", "Commit identity metadata could not be inspected."))
     commit_count = 0
@@ -216,50 +228,61 @@ def scan_git_identities(
                 continue
             commit_count += 1
             sha, author_email, committer_email = parts
-            if not is_approved_email(author_email, configured_email, identity_policy, approved_noreply):
+            author_approved = is_approved_email(author_email, configured_email, identity_policy, approved_noreply)
+            committer_approved = is_approved_email(committer_email, configured_email, identity_policy, approved_noreply)
+            if not author_approved:
+                severity = "blocker" if history_identity_policy == "strict" else "advisory"
                 findings.append(Finding(
-                    "blocker", "commit-author-email-not-approved",
-                    "Commit Author email is not approved by the selected identity policy; value intentionally redacted.",
+                    severity, "commit-author-email-outside-current-policy",
+                    "Existing commit Author identity differs from the current publication identity; this is normal in collaborative history. Value intentionally redacted.",
                     f"commit:{sha}",
                 ))
-            if not is_approved_email(committer_email, configured_email, identity_policy, approved_noreply):
+            if not committer_approved:
+                severity = "blocker" if history_identity_policy == "strict" else "advisory"
                 findings.append(Finding(
-                    "blocker", "commit-committer-email-not-approved",
-                    "Commit Committer email is not approved by the selected identity policy; value intentionally redacted.",
+                    severity, "commit-committer-email-outside-current-policy",
+                    "Existing commit Committer identity differs from the current publication identity; this is normal in collaborative history. Value intentionally redacted.",
                     f"commit:{sha}",
                 ))
     metadata["commit_identity_count"] = commit_count
 
-    code, tags = git(
-        root, "for-each-ref", "--format=%(refname)%09%(objecttype)%09%(taggeremail)", "refs/tags",
-    )
-    if code != 0:
-        findings.append(Finding("blocker", "git-tag-identity-scan-failed", "Tag identity metadata could not be inspected."))
-        return
+    selected_tags: set[str] = set()
+    for ref in publication_refs:
+        code, canonical = git(root, "rev-parse", "--symbolic-full-name", ref)
+        if code == 0 and canonical.startswith("refs/tags/"):
+            selected_tags.add(canonical)
     annotated_count = 0
-    for row in tags.splitlines():
-        if not row:
+    for selected_tag in sorted(selected_tags):
+        code, tags = git(
+            root, "for-each-ref", "--format=%(refname)%09%(objecttype)%09%(taggeremail)", selected_tag,
+        )
+        if code != 0:
+            findings.append(Finding("blocker", "git-tag-identity-scan-failed", "Tag identity metadata could not be inspected.", selected_tag))
             continue
-        parts = row.split("\t")
-        # GitHub Actions can materialize the checked-out tag ref as a
-        # lightweight ref to the workflow's commit. Because git() removes
-        # trailing whitespace, its empty tagger field leaves two columns.
-        # Lightweight tags have no Tagger identity to validate.
-        if len(parts) == 2 and parts[1] != "tag":
-            continue
-        if len(parts) != 3:
-            findings.append(Finding("blocker", "git-tag-identity-scan-incomplete", "Unexpected Tag identity metadata format."))
-            continue
-        refname, object_type, tagger_email = parts
-        if object_type != "tag":
-            continue
-        annotated_count += 1
-        if not is_approved_email(tagger_email, configured_email, identity_policy, approved_noreply):
-            findings.append(Finding(
-                "blocker", "tagger-email-not-approved",
-                "Annotated Tag tagger email is not approved by the selected identity policy; value intentionally redacted.",
-                refname,
-            ))
+        for row in tags.splitlines():
+            if not row:
+                continue
+            parts = row.split("\t")
+            # GitHub Actions can materialize the checked-out tag ref as a
+            # lightweight ref to the workflow's commit. Because git() removes
+            # trailing whitespace, its empty tagger field leaves two columns.
+            # Lightweight tags have no Tagger identity to validate.
+            if len(parts) == 2 and parts[1] != "tag":
+                continue
+            if len(parts) != 3:
+                findings.append(Finding("blocker", "git-tag-identity-scan-incomplete", "Unexpected Tag identity metadata format.", selected_tag))
+                continue
+            refname, object_type, tagger_email = parts
+            if object_type != "tag":
+                continue
+            annotated_count += 1
+            if not is_approved_email(tagger_email, configured_email, identity_policy, approved_noreply):
+                severity = "blocker" if history_identity_policy == "strict" else "advisory"
+                findings.append(Finding(
+                    severity, "tagger-email-outside-current-policy",
+                    "Existing annotated Tag identity differs from the current publication identity; value intentionally redacted.",
+                    refname,
+                ))
     metadata["annotated_tag_identity_count"] = annotated_count
 
 
@@ -274,6 +297,16 @@ def candidate_files(root: Path, is_git: bool) -> list[Path]:
         dirs[:] = [name for name in dirs if name not in SKIP_DIRS]
         files.extend(Path(current) / name for name in names)
     return files
+
+
+def candidate_ref_paths(root: Path, refs: list[str]) -> set[str]:
+    paths: set[str] = set()
+    for ref in refs:
+        code, output = git(root, "ls-tree", "-r", "--name-only", "-z", ref)
+        if code != 0:
+            raise RuntimeError(f"publication ref paths could not be enumerated: {ref}")
+        paths.update(item.replace("\\", "/") for item in output.split("\0") if item)
+    return paths
 
 
 def is_probably_text(path: Path) -> bool:
@@ -381,23 +414,64 @@ def scan_text_lines(
                 add_redacted_finding(findings, f"{code_prefix}log-personal-id", rel, number)
 
 
-def current_tracked_blobs(root: Path) -> dict[str, str]:
-    code, output = git(root, "ls-files", "--stage", "-z")
+def publication_refs(root: Path, requested_refs: Iterable[str] | None) -> list[str]:
+    requested = list(requested_refs or [])
+    if not requested:
+        code, _ = git(root, "rev-parse", "--verify", "HEAD^{commit}")
+        return ["HEAD"] if code == 0 else []
+    resolved: list[str] = []
+    for ref in requested:
+        code, _ = git(root, "rev-parse", "--verify", f"{ref}^{{object}}")
+        if code != 0:
+            raise RuntimeError(f"publication ref could not be resolved: {ref}")
+        resolved.append(ref)
+    return resolved
+
+
+def publication_ref_oids(root: Path, refs: Iterable[str]) -> dict[str, str]:
+    resolved: dict[str, str] = {}
+    for ref in refs:
+        code, oid = git(root, "rev-parse", "--verify", f"{ref}^{{object}}")
+        if code != 0 or not oid:
+            raise RuntimeError(f"publication ref could not be resolved: {ref}")
+        resolved[ref] = oid
+    return resolved
+
+
+def worktree_equivalent_blobs(root: Path, files: Iterable[Path]) -> dict[str, str]:
+    candidate_paths = {relative(root, path) for path in files}
+    code, staged = git(root, "ls-files", "--stage", "-z")
     if code != 0:
-        raise RuntimeError("git ls-files failed; current tracked blobs could not be identified")
-    result: dict[str, str] = {}
-    for row in output.split("\0"):
+        return {}
+    tracked: dict[str, str] = {}
+    for row in staged.split("\0"):
         if not row or "\t" not in row:
             continue
-        metadata, path = row.split("\t", 1)
-        parts = metadata.split()
-        if len(parts) >= 3 and parts[2] == "0":
-            result[path.replace("\\", "/")] = parts[1]
-    return result
+        fields, path = row.split("\t", 1)
+        parts = fields.split()
+        normalized = path.replace("\\", "/")
+        if len(parts) >= 3 and parts[2] == "0" and normalized in candidate_paths:
+            tracked[normalized] = parts[1]
+
+    code, changed = git(root, "diff-files", "--name-only", "-z")
+    if code != 0:
+        return {}
+    unsafe = {path.replace("\\", "/") for path in changed.split("\0") if path}
+
+    code, flags = git(root, "ls-files", "-v", "-z")
+    if code != 0:
+        return {}
+    for row in flags.split("\0"):
+        if len(row) >= 3 and row[0].islower() and row[1] == " ":
+            unsafe.add(row[2:].replace("\\", "/"))
+
+    return {path: oid for path, oid in tracked.items() if path not in unsafe}
 
 
-def history_blob_entries(root: Path) -> list[tuple[str, str, int]]:
-    code, output = git(root, "rev-list", "--objects", "--all")
+def history_blob_entries(root: Path, refs: list[str]) -> list[tuple[str, str, int]]:
+    if not refs:
+        return []
+    code, output = git(root, "rev-list", "--objects", *refs)
     if code != 0:
         raise RuntimeError("git rev-list failed; historical objects could not be enumerated")
     objects: list[tuple[str, str]] = []
@@ -437,12 +511,37 @@ def history_blob_entries(root: Path) -> list[tuple[str, str, int]]:
     return entries
 
 
-def scan_history_content(root: Path, findings: list[Finding], metadata: dict[str, object]) -> None:
-    current = current_tracked_blobs(root)
-    entries = history_blob_entries(root)
+def blob_prefix(root: Path, sha: str, limit: int = 4096) -> bytes | None:
+    proc = subprocess.Popen(
+        ["git", "-C", str(root), "cat-file", "blob", sha],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
+    )
+    try:
+        assert proc.stdout is not None
+        data = proc.stdout.read(limit)
+    finally:
+        if proc.stdout is not None:
+            proc.stdout.close()
+        proc.kill()
+        proc.wait()
+    return data
+
+
+def scan_history_content(
+    root: Path,
+    findings: list[Finding],
+    metadata: dict[str, object],
+    refs: list[str],
+    worktree_blobs: dict[str, str] | None = None,
+) -> None:
+    entries = history_blob_entries(root, refs)
     scanned = 0
+    deduplicated = 0
+    equivalent = worktree_blobs or {}
     for sha, path_text, size in entries:
-        if path_text and current.get(path_text) == sha:
+        if path_text and equivalent.get(path_text) == sha:
+            deduplicated += 1
             continue
         display_path = path_text or "<pathless-blob>"
         historical_location = f"history:{sha[:12]}:{display_path}"
@@ -457,11 +556,30 @@ def scan_history_content(root: Path, findings: list[Finding], metadata: dict[str
         text_like = path.suffix.lower() in TEXT_EXTENSIONS or lower_name in {
             "dockerfile", "makefile", "readme", "license", "notice",
         }
+        if size >= 100 * 1024 * 1024:
+            findings.append(Finding(
+                "blocker", "history-oversize-file",
+                "A file in candidate history is at least 100 MiB; verify current GitHub limits or use Git LFS when appropriate.",
+                historical_location,
+            ))
         if size > MAX_TEXT_SCAN_BYTES:
-            if text_like:
+            prefix = blob_prefix(root, sha)
+            if prefix is None:
+                findings.append(Finding(
+                    "blocker", "history-content-scan-incomplete",
+                    "A historical blob could not be classified for content scanning.",
+                    historical_location,
+                ))
+            elif text_like or b"\0" not in prefix:
                 findings.append(Finding(
                     "blocker", "history-content-scan-incomplete",
                     f"Historical text-like blob exceeds the {MAX_TEXT_SCAN_BYTES // (1024 * 1024)} MiB scan limit.",
+                    historical_location,
+                ))
+            else:
+                findings.append(Finding(
+                    "warning", "history-large-binary-uninspected",
+                    "Large historical binary content was not pattern-scanned; verify it with format-appropriate tooling if it will be published.",
                     historical_location,
                 ))
             continue
@@ -485,12 +603,13 @@ def scan_history_content(root: Path, findings: list[Finding], metadata: dict[str
         scan_text_lines(text.splitlines(), historical_location, path.suffix, findings, "history-")
     metadata["history_blob_count"] = len(entries)
     metadata["historical_text_blob_count"] = scanned
+    metadata["deduplicated_history_blob_count"] = deduplicated
 
 
 def scan_content(root: Path, files: Iterable[Path], findings: list[Finding]) -> None:
     for path in files:
         try:
-            size = path.stat().st_size
+            size = path.lstat().st_size
         except OSError as exc:
             findings.append(Finding("blocker", "scan-failed", f"Could not inspect file metadata: {exc}", relative(root, path)))
             continue
@@ -514,6 +633,13 @@ def scan_content(root: Path, files: Iterable[Path], findings: list[Finding]) -> 
         if log_file:
             findings.append(Finding("warning", "log-artifact", "Log or diagnostic artifact appears publishable; verify that inclusion is necessary.", rel))
 
+        if path.is_symlink():
+            try:
+                target = os.readlink(path)
+                scan_text_lines([target], rel, path.suffix, findings)
+            except OSError as exc:
+                findings.append(Finding("blocker", "scan-failed", f"Could not inspect symbolic link: {exc}", rel))
+            continue
         if not is_probably_text(path):
             continue
         if size > MAX_TEXT_SCAN_BYTES:
@@ -531,9 +657,12 @@ def scan_content(root: Path, files: Iterable[Path], findings: list[Finding]) -> 
 
 def inspect_repository(
     root: Path,
-    identity_policy: str = "noreply",
+    identity_policy: str = "report",
+    history_identity_policy: str = "report",
     approved_noreply: str | None = None,
     account_error: str | None = None,
+    requested_refs: Iterable[str] | None = None,
+    include_worktree: bool = True,
 ) -> tuple[dict[str, object], list[Finding]]:
     findings: list[Finding] = []
     code, _ = git(root, "rev-parse", "--show-toplevel")
@@ -543,6 +672,17 @@ def inspect_repository(
     if not is_git:
         findings.append(Finding("blocker", "not-git-repository", "No Git repository was detected."))
     else:
+        try:
+            refs = publication_refs(root, requested_refs)
+        except RuntimeError as exc:
+            findings.append(Finding("blocker", "publication-ref-invalid", str(exc), "git-ref"))
+            refs = []
+        metadata["publication_refs"] = refs
+        try:
+            metadata["publication_ref_oids"] = publication_ref_oids(root, refs)
+        except RuntimeError as exc:
+            findings.append(Finding("blocker", "publication-ref-invalid", str(exc), "git-ref"))
+            metadata["publication_ref_oids"] = {}
         code, branch = git(root, "branch", "--show-current")
         metadata["branch"] = branch if code == 0 and branch else None
         code, head = git(root, "rev-parse", "HEAD")
@@ -560,9 +700,14 @@ def inspect_repository(
             findings.append(Finding("blocker", "git-remote-check-failed", "Git remotes could not be inspected."))
         elif not remotes:
             findings.append(Finding("advisory", "no-remote", "No Git remote is configured."))
-        scan_git_identities(root, findings, metadata, identity_policy, approved_noreply, account_error)
+        files = candidate_files(root, is_git) if include_worktree else []
+        equivalent_blobs = worktree_equivalent_blobs(root, files) if include_worktree else {}
+        scan_git_identities(
+            root, findings, metadata, identity_policy, history_identity_policy,
+            approved_noreply, account_error, refs,
+        )
         try:
-            scan_history_content(root, findings, metadata)
+            scan_history_content(root, findings, metadata, refs, equivalent_blobs)
         except RuntimeError as exc:
             findings.append(Finding(
                 "blocker", "history-content-scan-failed",
@@ -570,9 +715,20 @@ def inspect_repository(
                 "git-history",
             ))
 
-    files = candidate_files(root, is_git)
-    metadata["candidate_file_count"] = len(files)
-    names = {relative(root, path).lower() for path in files}
+    if not is_git:
+        files = candidate_files(root, is_git) if include_worktree else []
+    if is_git and not include_worktree:
+        try:
+            ref_paths = candidate_ref_paths(root, metadata.get("publication_refs", []))
+        except RuntimeError as exc:
+            findings.append(Finding("blocker", "publication-ref-paths-failed", str(exc), "git-ref"))
+            ref_paths = set()
+        names = {name.lower() for name in ref_paths}
+        metadata["candidate_file_count"] = len(ref_paths)
+    else:
+        names = {relative(root, path).lower() for path in files}
+        metadata["candidate_file_count"] = len(files)
+    metadata["worktree_content_scanned"] = include_worktree
     if not any(name in names for name in {"readme", "readme.md", "readme.rst", "readme.txt"}):
         findings.append(Finding("blocker", "missing-readme", "No root README was found."))
     if ".gitignore" not in names:
@@ -610,9 +766,23 @@ def main() -> int:
     parser.add_argument("--format", choices=("text", "json"), default="text")
     parser.add_argument(
         "--identity-policy",
-        choices=("noreply", "configured"),
-        default="noreply",
-        help="Require ID-based noreply (default), or allow the exact repository-local email after explicit approval.",
+        choices=("report", "noreply", "configured"),
+        default="report",
+        help="Report current identity without blocking (default), require authenticated noreply, or allow the selected repository-local email.",
+    )
+    parser.add_argument(
+        "--history-identity-policy",
+        choices=("report", "strict"),
+        default="report",
+        help="Report collaborative historical identities (default), or require every historical identity to match the selected policy.",
+    )
+    parser.add_argument(
+        "--ref", action="append", dest="refs",
+        help="Publication ref to scan; repeat for multiple refs. Defaults to HEAD rather than every local ref.",
+    )
+    parser.add_argument(
+        "--committed-only", action="store_true",
+        help="Scan selected committed refs without treating current worktree and untracked content as publication candidates.",
     )
     parser.add_argument("--gh", help="Path to the GitHub CLI executable used to resolve the authenticated account")
     parser.add_argument("--expected-github-id", help="Expected numeric GitHub account ID; use with --expected-github-login")
@@ -623,15 +793,24 @@ def main() -> int:
     if not root.is_dir():
         print(f"error: repository path is not a directory: {root}", file=sys.stderr)
         return 2
+    if bool(args.expected_github_id) != bool(args.expected_github_login):
+        print("error: --expected-github-id and --expected-github-login are required together", file=sys.stderr)
+        return 2
     try:
-        approved_noreply, account_error = resolve_expected_noreply(
-            args.gh, args.expected_github_id, args.expected_github_login,
-        )
+        if args.identity_policy == "report" and not any((args.expected_github_id, args.expected_github_login)):
+            approved_noreply, account_error = None, None
+        else:
+            approved_noreply, account_error = resolve_expected_noreply(
+                args.gh, args.expected_github_id, args.expected_github_login,
+            )
         metadata, findings = inspect_repository(
             root,
             identity_policy=args.identity_policy,
+            history_identity_policy=args.history_identity_policy,
             approved_noreply=approved_noreply,
             account_error=account_error,
+            requested_refs=args.refs,
+            include_worktree=not args.committed_only,
         )
     except (FileNotFoundError, RuntimeError) as exc:
         print(f"error: publication preflight could not complete: {exc}", file=sys.stderr)

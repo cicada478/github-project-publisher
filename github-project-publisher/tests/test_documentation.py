@@ -21,6 +21,12 @@ class SkillPackageTests(unittest.TestCase):
         ui = (SKILL / "agents" / "openai.yaml").read_text(encoding="utf-8")
         self.assertIn("$github-project-publisher", ui)
         self.assertIn("allow_implicit_invocation: true", ui)
+        self.assertIn("make no changes or uploads", ui)
+
+        self.assertIn("--committed-only --ref", text)
+        identity = (SKILL / "references" / "identity-policy.md").read_text(encoding="utf-8")
+        self.assertIn("--history-identity-policy strict", identity)
+        self.assertIn("Existing Author, Committer, and Tagger identities are provenance", identity)
 
     def test_local_markdown_links_resolve(self) -> None:
         markdown_files = [ROOT / "README.md", ROOT / "README.en.md", ROOT / "RELEASE_NOTES.md"]
