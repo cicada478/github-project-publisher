@@ -1,3 +1,41 @@
+# GitHub Project Publisher v0.4.1
+
+发布日期 / Release date: `2026-10-04`
+
+发布类型 / Release type: `稳定版 / Stable`
+
+目标分支 / Target branch: `main`; 目标提交由附注标签 / Target commit pinned by annotated tag: `v0.4.1`.
+
+## 中文 Release Notes
+
+v0.4.1 小幅改进 GitHub CLI 操作指导，保持个人项目上传流程轻量、独立可用。
+
+- 仓库与 Release 状态查询使用明确的 JSON 字段；Release 创建和查询显式指定目标仓库，减少对当前工作目录的依赖。
+- 需要澄清命令、输出或分页时，可参考官方 `gh` Skill 或本机命令帮助；不新增必装依赖，不自动安装或更新其他 Skill。
+- 查询完整列表时提醒处理结果上限与 API 分页。现有发布范围、授权和验证要求保持不变。
+
+兼容性：无脚本、配置或数据格式变更。覆盖安装 Skill 文件夹即可升级。
+
+## English Release Notes
+
+v0.4.1 refines GitHub CLI guidance while keeping personal project publication lightweight and self-contained.
+
+- Query repository and Release state with explicit JSON fields, and target the repository explicitly when creating or viewing a Release.
+- Consult the optional official `gh` skill or local command help when syntax, output, or pagination needs clarification. No new required dependency or automatic skill installation is introduced.
+- Account for result limits and API pagination when complete lists are needed. Publication scope, authorization, and verification requirements remain unchanged.
+
+Compatibility: no script, configuration, or data-format changes. Upgrade by replacing the installed skill folder.
+
+## 验证 / Verification
+
+- 23 项单元测试通过 / All 23 unit tests passed.
+- 12 个行为 eval 场景的结构与覆盖校验通过；未运行真实模型 eval / The 12-case behavior corpus passed structure and coverage validation; live model evals were not run.
+- 本版本不附加上传资产 / No uploaded release assets are included.
+
+[完整变更 / Full changelog](https://github.com/cicada478/github-project-publisher/compare/v0.4.0...v0.4.1)
+
+---
+
 # GitHub Project Publisher v0.4.0
 
 发布类型：`稳定版 / Stable`

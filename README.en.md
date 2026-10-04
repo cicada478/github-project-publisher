@@ -6,7 +6,7 @@ A Codex GitHub publishing assistant for ordinary project authors. It can perform
 
 ## Project status
 
-This repository contains the GitHub Project Publisher skill source. The latest stable release is [`v0.4.0`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.4.0), with complete changes documented in [RELEASE_NOTES.md](RELEASE_NOTES.md).
+This repository contains the GitHub Project Publisher skill source. The latest stable release is [`v0.4.1`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.4.1), with complete changes documented in [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
 ## Capabilities
 

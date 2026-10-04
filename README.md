@@ -6,7 +6,7 @@
 
 ## 项目状态
 
-本仓库包含 GitHub Project Publisher 的 Skill 源码。最新稳定版为 [`v0.4.0`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.4.0)，完整变更见 [RELEASE_NOTES.md](RELEASE_NOTES.md)。
+本仓库包含 GitHub Project Publisher 的 Skill 源码。最新稳定版为 [`v0.4.1`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.4.1)，完整变更见 [RELEASE_NOTES.md](RELEASE_NOTES.md)。
 
 ## 核心能力
 
