@@ -2,6 +2,12 @@
 
 Use this runbook only for external repository, push, Tag, visibility, or Release operations.
 
+## GitHub CLI guidance
+
+Use structured output (`--json` and, when useful, `--jq`) for decisions based on remote state. Target the verified repository explicitly with a repository argument or `--repo OWNER/REPO`, as supported by the command. When complete lists are needed, account for result limits and API pagination.
+
+If command syntax, output, or pagination needs clarification, consult the available official [gh skill](https://github.com/cli/cli/blob/trunk/skills/gh/SKILL.md) or the installed command's `--help`. Apply only relevant guidance and check newer flags against the installed CLI. This optional reference does not change publication scope, authorization, or verification requirements; do not install or update skills implicitly.
+
 ## Verify destination and candidate
 
 Resolve the authenticated account, owner/repository, destination existence and visibility, default branch, current remote URL, candidate refs, and whether the destination contains history. Never expose a token or embed one in a remote URL.
@@ -17,7 +23,7 @@ gh auth status
 For an existing destination:
 
 ```sh
-gh repo view OWNER/REPO
+gh repo view OWNER/REPO --json nameWithOwner,visibility,url,defaultBranchRef
 git ls-remote https://github.com/OWNER/REPO.git
 ```
 
@@ -59,8 +65,8 @@ For a newly created private destination that may become public, clone it into an
 Identify the previous release and candidate range. Confirm version policy, exact target commit, notes, and draft/pre-release/stable state. Prefer reviewed notes from a local Markdown file. When assets are attached, create a draft first:
 
 ```sh
-gh release create TAG --target COMMIT --title "TITLE" --notes-file RELEASE_NOTES.md --draft
-gh release view TAG
+gh release create TAG --repo OWNER/REPO --target COMMIT --title "TITLE" --notes-file RELEASE_NOTES.md --draft
+gh release view TAG --repo OWNER/REPO --json tagName,isDraft,isPrerelease,url
 ```
 
 Do not release an ambiguous branch tip, reuse a published version, or attach an artifact whose build revision or provenance is unknown.
