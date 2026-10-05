@@ -6,12 +6,13 @@ A Codex GitHub publishing assistant for ordinary project authors. It can perform
 
 ## Project status
 
-This repository contains the GitHub Project Publisher skill source. The latest stable release is [`v0.4.1`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.4.1), with complete changes documented in [RELEASE_NOTES.md](RELEASE_NOTES.md).
+This repository contains the GitHub Project Publisher skill source. The latest stable release is [`v0.4.2`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.4.2), with complete changes documented in [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
 ## Capabilities
 
 - Separates audit-only, local preparation, repository publication, and Release publication modes.
 - Reviews Git state, repository hygiene, file sizes, documentation completeness, license status, and remote targets.
+- Flags common machine-local paths, including personal directories and R/Python installations, for portability and privacy review without echoing path values or automatically blocking publication.
 - Reviews current content and historical text blobs reachable from the exact branches or Tags selected for publication; unrelated local branches, Tags, and stashes are not treated as upload candidates.
 - Scans an unchanged tracked Blob only once across worktree and candidate history, and reuses check evidence while ref OIDs, identity policy, configuration, assets, and destination remain unchanged.
 - Reviews publishable logs, HAR files, traces, dumps, crash reports, and source code that logs sensitive fields.

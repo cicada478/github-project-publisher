@@ -11,6 +11,12 @@ Inspect candidate tracked and staged content, intended non-ignored untracked fil
 
 The bundled scanner covers common text patterns and repository publication state. Also run an already configured project scanner such as gitleaks or trufflehog when it adds complementary provider-specific or repository-specific coverage. Do not install extra scanners merely to duplicate equivalent coverage.
 
+## Machine-specific paths
+
+The baseline warns about Windows drive paths, personal home directories, and common local runtime locations in publishable text. Review hardcoded Python/R executables, working directories, data paths, and logs for portability and personal-directory exposure. Use the current interpreter, PATH discovery, project-relative paths, or explicit configuration as appropriate; do not blindly replace paths.
+
+These heuristic findings are not automatic blockers. Explicit documentation placeholders and conventional system/container paths can be valid. Historical path findings are advisory and do not justify history rewriting by themselves. Reports omit the matched value. UNC paths, assembled paths, and other installation layouts may need contextual review.
+
 ## Blockers
 
 - API keys, OAuth/client secrets, access or refresh tokens, webhooks, JWT/session values, cookies, authorization headers, and signed URLs.

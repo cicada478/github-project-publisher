@@ -36,6 +36,77 @@ def make_repository(root: Path, email: str) -> None:
     run_git(root, "remote", "add", "origin", "https://github.com/example/project.git")
 
 
+class MachineLocalPathTests(unittest.TestCase):
+    def scan(self, text: str, suffix: str = ".py", prefix: str = "") -> list:
+        findings: list = []
+        preflight.scan_text_lines(text.splitlines(), "candidate" + suffix, suffix, findings, prefix)
+        return [item for item in findings if item.code.endswith("machine-local-path")]
+
+    def test_runtime_and_personal_paths_are_redacted_warnings(self) -> None:
+        cases = [
+            (r'python = "C:\Users\ActualPerson\miniconda3\python.exe"', ".py"),
+            (r'{"python": "C:\\Users\\ActualPerson\\python.exe"}', ".json"),
+            ('setwd("D:/research/data")', ".R"),
+            ('R = "C:/Program Files/R/R-4.4.0/bin/Rscript.exe"', ".toml"),
+            ('python = "/home/actualperson/venv/bin/python"', ".sh"),
+            ('data = "/Users/实际用户/private/data.csv"', ".R"),
+            ('R = "/opt/R/4.4/bin/Rscript"', ".yaml"),
+            ('python = "/usr/local/bin/python3.12"', ".sh"),
+        ]
+        for text, suffix in cases:
+            with self.subTest(text=text):
+                findings = self.scan("# header\n" + text, suffix)
+                self.assertEqual(len(findings), 1)
+                self.assertEqual(findings[0].severity, "warning")
+                self.assertEqual(findings[0].line, 2)
+                self.assertNotIn("ActualPerson", findings[0].message)
+                self.assertNotIn(text, findings[0].message)
+
+    def test_portable_paths_and_documented_placeholders_are_quiet(self) -> None:
+        for text in [
+            '#!/usr/bin/env python3', 'root = "/app/data"',
+            'python = sys.executable', 'data = "./data/input.csv"',
+            'python = "$HOME/.venv/bin/python"',
+            'https://example.org/home/user/data',
+        ]:
+            with self.subTest(text=text):
+                self.assertEqual(self.scan(text), [])
+        for text in [r'C:\path\to\python.exe', r'C:\Users\username\project', '/home/example-user/project']:
+            with self.subTest(text=text):
+                self.assertEqual(self.scan(text, ".md"), [])
+        self.assertEqual(len(self.scan(r'C:\Users\username\project')), 1)
+
+    def test_history_paths_are_advisory_without_weakening_secret_checks(self) -> None:
+        findings = self.scan('root = "/home/actualperson/project"', prefix="history-")
+        self.assertEqual(findings[0].severity, "advisory")
+        self.assertEqual(findings[0].code, "history-machine-local-path")
+        all_findings: list = []
+        preflight.scan_text_lines(
+            ['root = "/home/actualperson/project"', '-----BEGIN PRIVATE KEY-----'],
+            "history:example:task.py", ".py", all_findings, "history-",
+        )
+        self.assertTrue(any(item.code == "history-private-key" and item.severity == "blocker" for item in all_findings))
+
+    def test_r_worktree_and_removed_historical_path_are_scanned(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_repository(root, NOREPLY)
+            script = root / "analysis.R"
+            script.write_text('setwd("D:/research/data")\n', encoding="utf-8")
+            _, findings = preflight.inspect_repository(root)
+            self.assertTrue(any(item.code == "machine-local-path" and item.path == "analysis.R" for item in findings))
+            run_git(root, "add", "--", "analysis.R")
+            run_git(root, "commit", "-m", "test: local path fixture")
+            script.write_text('data <- "./data"\n', encoding="utf-8")
+            run_git(root, "add", "--", "analysis.R")
+            run_git(root, "commit", "-m", "test: portable path fixture")
+            _, findings = preflight.inspect_repository(root, include_worktree=False, requested_refs=["main"])
+            path_findings = [item for item in findings if item.code.endswith("machine-local-path")]
+            self.assertEqual(len(path_findings), 1)
+            self.assertEqual(path_findings[0].severity, "advisory")
+            self.assertNotIn("D:/research/data", repr(path_findings))
+
+
 class PreflightIdentityTests(unittest.TestCase):
     def test_id_noreply_history_passes(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

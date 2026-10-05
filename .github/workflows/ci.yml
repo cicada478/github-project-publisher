@@ -38,7 +38,7 @@ jobs:
       - name: Run strict repository preflight
         if: github.event_name != 'pull_request'
         run: >-
-          python github-project-publisher/scripts/preflight.py . --strict
+          python github-project-publisher/scripts/preflight.py . --strict --committed-only --ref HEAD
           --expected-github-id 149449562 --expected-github-login cicada478
 
   live-skill-evals:

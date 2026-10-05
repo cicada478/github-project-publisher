@@ -1,3 +1,45 @@
+# GitHub Project Publisher v0.4.2
+
+发布日期 / Release date: `2026-10-05`
+
+发布类型 / Release type: `稳定版 / Stable`
+
+目标分支 / Target branch: `main`; 目标提交由附注标签 / Target commit pinned by annotated tag: `v0.4.2`.
+
+## 中文 Release Notes
+
+新增轻量的机器相关路径检查，帮助发现 Agent 写入的个人目录、数据目录以及 R/Python 安装路径。
+
+- 工作树命中给出警告，候选历史文本命中给出提示；路径本身不构成敏感数据阻断项，不因此要求重写历史。
+- 报告只给出位置和问题类型，不回显匹配路径。支持部分文档占位路径豁免，通用系统与容器路径不会一律告警。
+- 补充审核指南和中英文说明；CI 预检明确限定到已提交的 HEAD 候选内容。
+- 新增 4 项测试，覆盖路径识别、脱敏、误报排除及 R 文件的工作树与历史扫描。
+
+兼容性：无新增依赖或配置要求。路径识别为启发式检查，UNC 网络路径、动态拼接路径及其他安装布局仍需上下文审查。严格模式仍将工作树警告视为失败，必要时审查测试样例等有意保留的路径。
+
+## English Release Notes
+
+Adds lightweight machine-local path checks for personal directories, data locations, and R/Python installations.
+
+- Worktree matches produce warnings; candidate-history matches produce advisories. Paths alone are not sensitive-data blockers and do not justify rewriting history.
+- Reports identify the location and category without echoing matched values. Some documentation placeholders are exempt, and conventional system/container paths are not categorically flagged.
+- Updates the review guide and both READMEs; CI preflight explicitly scans committed HEAD content.
+- Adds four tests covering detection, redaction, false-positive controls, and R worktree/history scanning.
+
+Compatibility: no new dependencies or configuration. Detection is heuristic; UNC paths, assembled paths, and other layouts need contextual review. Strict mode still treats worktree warnings as failures; review intentional fixtures when applicable.
+
+## 验证 / Verification
+
+- 27 项单元测试 / 27 unit tests.
+- 12 个行为场景的结构与覆盖校验；不运行真实模型 eval / Structure and coverage checks for 12 behavior cases; no live model eval.
+- 不附加上传资产 / No uploaded release assets.
+
+升级方式 / Upgrade: replace the installed `github-project-publisher` skill folder.
+
+[完整变更 / Full changelog](https://github.com/cicada478/github-project-publisher/compare/v0.4.1...v0.4.2)
+
+---
+
 # GitHub Project Publisher v0.4.1
 
 发布日期 / Release date: `2026-10-04`

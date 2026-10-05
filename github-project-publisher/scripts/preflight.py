@@ -85,6 +85,28 @@ SENSITIVE_LOG_SINK_PATTERN = re.compile(
 )
 MAX_TEXT_SCAN_BYTES = 25 * 1024 * 1024
 
+# Heuristic portability hints, not proof of private data or broken execution.
+LOCAL_PATH_PATTERN = re.compile(
+    r"(?<![\w/:\\])(?:[A-Za-z]:[\\/]+[^\s\"'`<>]+"
+    r"|/(?:Users|home)/[^\s\"'`<>]+"
+    r"|/opt[/][^\s\"'`<>]+"
+    r"|/usr/local/(?:bin/(?:python[\w.]*|Rscript|R)|lib/(?:python|R)[^\s\"'`<>]*)"
+    r")(?![\w])"
+)
+
+
+def has_machine_local_path(line: str, suffix: str) -> bool:
+    for match in LOCAL_PATH_PATTERN.finditer(line):
+        path = re.sub(r"\\+", "/", match.group()).casefold().rstrip("/.,;)")
+        # Explicit documentation placeholders are not evidence of a local setup.
+        if suffix.lower() in {".md", ".rst", ".txt"} and (
+            re.match(r"^[a-z]:/path/to(?:/|$)", path)
+            or re.match(r"^(?:[a-z]:/users|/users|/home)/(?:username|yourname|example-user)(?:/|$)", path)
+        ):
+            continue
+        return True
+    return False
+
 
 def git(root: Path, *args: str) -> tuple[int, str]:
     proc = subprocess.run(
@@ -388,6 +410,15 @@ def scan_text_lines(
     log_file = is_log_path(relative_path)
     source_file = suffix.lower() in SOURCE_EXTENSIONS
     for number, line in enumerate(lines, 1):
+        if has_machine_local_path(line, suffix):
+            findings.append(Finding(
+                "advisory" if code_prefix == "history-" else "warning",
+                f"{code_prefix}machine-local-path",
+                "Possible machine-specific path; review portability and personal-directory exposure. "
+                "Prefer project-relative paths, PATH discovery, or explicit configuration where appropriate. "
+                "Value intentionally redacted.",
+                rel, number,
+            ))
         for code, pattern in SECRET_PATTERNS:
             if pattern.search(line):
                 add_redacted_finding(findings, f"{code_prefix}{code}", rel, number)

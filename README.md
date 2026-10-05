@@ -6,12 +6,13 @@
 
 ## 项目状态
 
-本仓库包含 GitHub Project Publisher 的 Skill 源码。最新稳定版为 [`v0.4.1`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.4.1)，完整变更见 [RELEASE_NOTES.md](RELEASE_NOTES.md)。
+本仓库包含 GitHub Project Publisher 的 Skill 源码。最新稳定版为 [`v0.4.2`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.4.2)，完整变更见 [RELEASE_NOTES.md](RELEASE_NOTES.md)。
 
 ## 核心能力
 
 - 将任务区分为只读审计、本地准备、仓库发布和 Release 发布四种模式。
 - 检查 Git 状态、仓库卫生、文件大小、文档完整性、许可证状态和远程目标。
+- 对常见本地绝对路径给出可移植性与隐私提示，包括个人目录和 R/Python 安装路径；不回显路径值，不因路径本身自动阻断发布。
 - 对精确发布分支或 Tag 的当前内容与历史文本 Blob 实施敏感信息审查；不会把无关本地分支、Tag 或 stash 自动视为待上传内容。
 - 工作树与候选历史中完全相同的已跟踪 Blob 只扫描一次；检查结果绑定 ref OID、身份策略、配置、资产和目标，输入未变化时可复用证据。
 - 检查可发布日志、HAR、trace、dump、崩溃报告，以及源码中的敏感字段日志调用。
