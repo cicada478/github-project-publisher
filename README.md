@@ -6,7 +6,7 @@
 
 ## 项目状态
 
-本仓库包含 GitHub Project Publisher 的 Skill 源码。最新稳定版为 [`v0.4.2`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.4.2)，完整变更见 [RELEASE_NOTES.md](RELEASE_NOTES.md)。
+本仓库包含 GitHub Project Publisher 的 Skill 源码。最新稳定版为 [`v0.4.3`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.4.3)，完整变更见 [RELEASE_NOTES.md](RELEASE_NOTES.md)。
 
 ## 核心能力
 
@@ -20,7 +20,7 @@
 - 仅在工作流需要创建新提交时选择并验证 Git 身份：推荐 GitHub ID 型 noreply，个人邮箱可选。既有贡献者、Bot、导入历史和 Tagger 身份作为来源信息报告，不因不同于当前发布者而阻断普通发布。
 - 对每个用户上传的 Release 资产计算 SHA-256，并与 GitHub 返回的远端 digest 比对。
 - 通过决策矩阵区分无需提问、二元确认、选项对话卡片、自由文本问题和宿主权限提示；该问的决策必须在变更前询问，卡片不得因界面容量遗漏实质方案，并为每个方案说明结果、理由、取舍与推荐度。
-- 根据代码、配置、测试和历史证据撰写 README 与 Release Notes，禁止虚构功能、兼容性和性能结论。
+- 根据代码、配置、测试和历史证据撰写 README 与 Release Notes，禁止虚构功能、兼容性和性能结论；Release Notes 默认采用中英双语与适量 emoji 分类，并提供可裁剪模板。
 - 使用 Conventional Commits 组织原子提交，并处理 `BREAKING CHANGE`、scope、body 和 footer。
 - 在 commit、push、tag 或 Release 前设置明确的人工授权边界。
 

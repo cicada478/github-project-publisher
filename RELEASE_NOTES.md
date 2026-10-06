@@ -1,3 +1,59 @@
+# v0.4.3 — 双语发布说明与分类模板 / Bilingual release notes and category template
+
+发布日期 / Release date: 2026-10-06
+
+发布类型 / Release type: 稳定版 / Stable
+
+## 中文
+
+v0.4.3 完善 Release 文案规范，为项目作者提供可直接复用的中英双语模板，让版本变化更容易阅读和追溯。
+
+### 本次更新
+
+#### 📚 文档与维护
+
+- Release Notes 默认采用简体中文在前、英文在后的结构，两种语言保持事实、影响范围、迁移步骤及验证结果一致；用户可明确指定其他语言安排。
+- 新增可裁剪的双语模板，以及“本次更新 / What's Changed”分组规范。分类标题使用适量 emoji，帮助读者快速定位新增、修复、文档、依赖等变化；安全与破坏性变更优先展示。
+- 小版本可使用简短列表，省略无关章节；变更条目强调具体行为与用户影响，并按需附有效的 PR、贡献者和完整比较链接。
+- 将撰写指南的读取时机覆盖到 Release Notes 的新建与修订，并补充 GitHub CLI Release 作为结构参考。
+
+### 兼容性与升级
+
+本次仅调整 Skill 指令、文档与模板，无脚本、依赖或配置格式变更。覆盖安装 `github-project-publisher` Skill 文件夹即可升级。
+
+### 验证
+
+- 27 项单元测试通过。
+- 12 个行为场景的结构与覆盖校验通过；未运行真实模型 eval。
+- Skill 快速校验器因本机缺少 PyYAML 未运行完成。
+
+## English
+
+v0.4.3 refines release-writing guidance with a reusable Chinese and English template that makes version changes easier to read and trace.
+
+### What's Changed
+
+#### 📚 Docs & Chores
+
+- Release Notes default to Simplified Chinese followed by English, with equivalent facts, scope, migration steps, and verification results. Users can explicitly request a different language arrangement.
+- Adds an adaptable bilingual template and category guidance for “本次更新 / What's Changed”. Restrained emoji headings help readers locate features, fixes, documentation, and dependencies; security and breaking changes take priority.
+- Small releases can use short lists and omit irrelevant sections. Entries emphasize concrete behavior and user impact, with valid PR links, contributor credits, and a full comparison link where useful.
+- Requires the writing guide when drafting or revising Release Notes and adds a GitHub CLI Release as a structural reference.
+
+### Compatibility and upgrade
+
+This release only changes Skill instructions, documentation, and templates. There are no script, dependency, or configuration-format changes. Upgrade by replacing the installed `github-project-publisher` skill folder.
+
+### Verification
+
+- All 27 unit tests passed.
+- Structure and coverage validation passed for 12 behavior cases; live model evals were not run.
+- The Skill quick validator could not complete because PyYAML is unavailable in the local Python environment.
+
+**完整变更 / Full changelog:** [v0.4.2...v0.4.3](https://github.com/cicada478/github-project-publisher/compare/v0.4.2...v0.4.3)
+
+---
+
 # GitHub Project Publisher v0.4.2
 
 发布日期 / Release date: `2026-10-05`

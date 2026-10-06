@@ -37,7 +37,7 @@ Scan only refs included by the planned push unless the user requests a whole-rep
 
 Preserve correct content and established language. Ground claims in code, configuration, tests, or user-provided facts. Do not invent compatibility, performance, citations, contributors, support levels, or roadmap commitments. Do not select a license for the rights holder.
 
-- Before substantially rewriting a README or release notes, read [references/writing-guide.md](references/writing-guide.md).
+- Before substantially rewriting a README, or drafting or revising release notes, read [references/writing-guide.md](references/writing-guide.md). Release notes use Chinese and English unless the user explicitly requests otherwise; follow the guide's bilingual template.
 - Before creating a commit, read [references/commit-conventions.md](references/commit-conventions.md), stage explicit paths, and inspect the staged diff.
 
 ## Publish and verify

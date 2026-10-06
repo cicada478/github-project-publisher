@@ -6,7 +6,7 @@ A Codex GitHub publishing assistant for ordinary project authors. It can perform
 
 ## Project status
 
-This repository contains the GitHub Project Publisher skill source. The latest stable release is [`v0.4.2`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.4.2), with complete changes documented in [RELEASE_NOTES.md](RELEASE_NOTES.md).
+This repository contains the GitHub Project Publisher skill source. The latest stable release is [`v0.4.3`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.4.3), with complete changes documented in [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
 ## Capabilities
 
@@ -20,7 +20,7 @@ This repository contains the GitHub Project Publisher skill source. The latest s
 - Selects and verifies Git identity only when the workflow must create a commit. Existing contributors, bots, imported history, and Taggers are reported as provenance and do not block ordinary publication merely because they differ from the current publisher.
 - Computes SHA-256 for every user-uploaded Release asset and compares it with GitHub's remote digest.
 - Uses a decision matrix to distinguish no-question paths, binary confirmation, option cards, free-form questions, and host permissions; required decisions stop before mutation, no material option is dropped for UI capacity, and every option explains its outcome, rationale, tradeoff, and recommendation level.
-- Drafts README and Release Notes from code, configuration, test, and history evidence without inventing features, compatibility, or performance claims.
+- Drafts README and Release Notes from code, configuration, test, and history evidence without inventing features, compatibility, or performance claims; Release Notes default to Chinese and English with restrained emoji categories and an adaptable template.
 - Organizes atomic commits with Conventional Commits, including scopes, bodies, footers, and breaking-change metadata.
 - Preserves explicit authorization boundaries before commit, push, tag, or Release operations.
 
