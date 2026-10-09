@@ -6,7 +6,9 @@
 
 ## 项目状态
 
-本仓库包含 GitHub Project Publisher 的 Skill 源码。最新稳定版为 [`v0.4.3`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.4.3)，完整变更见 [RELEASE_NOTES.md](RELEASE_NOTES.md)。
+本仓库包含 GitHub Project Publisher 的 Skill 源码。已记录的稳定版本为 [`v0.4.3`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.4.3)，该版本的变更见 [RELEASE_NOTES.md](RELEASE_NOTES.md)。
+
+当前源码还包含尚未随稳定版发布的暂存区扫描（`--staged-only`）及两阶段审查改进；以下相关说明适用于当前源码，下载 `v0.4.3` 不包含这些改进。
 
 ## 核心能力
 
@@ -14,32 +16,71 @@
 - 检查 Git 状态、仓库卫生、文件大小、文档完整性、许可证状态和远程目标。
 - 对常见本地绝对路径给出可移植性与隐私提示，包括个人目录和 R/Python 安装路径；不回显路径值，不因路径本身自动阻断发布。
 - 对精确发布分支或 Tag 的当前内容与历史文本 Blob 实施敏感信息审查；不会把无关本地分支、Tag 或 stash 自动视为待上传内容。
-- 工作树与候选历史中完全相同的已跟踪 Blob 只扫描一次；检查结果绑定 ref OID、身份策略、配置、资产和目标，输入未变化时可复用证据。
+- 准备模式可对工作树与暂存区／候选历史中完全相同的已跟踪 Blob 复用内容扫描；独立的 Commit、Push 关卡仍分别执行。流程仅在暂存快照、ref OID、身份策略、配置、资产和目标等相关输入未变化时复用成功证据。
 - 检查可发布日志、HAR、trace、dump、崩溃报告，以及源码中的敏感字段日志调用。
 - 新建且最终需要公开的仓库先以 Private 上传和验证，公开转换作为独立最终决策；既有公开仓库沿用原有可见性和协作流程。
-- 仅在工作流需要创建新提交时选择并验证 Git 身份：推荐 GitHub ID 型 noreply，个人邮箱可选。既有贡献者、Bot、导入历史和 Tagger 身份作为来源信息报告，不因不同于当前发布者而阻断普通发布。
+- 在创建新提交或附注 Tag，或明确请求身份审计时应用 Git 身份策略：推荐 GitHub ID 型 noreply，个人邮箱可选。既有贡献者、Bot、导入历史和 Tagger 身份作为来源信息报告，不因不同于当前发布者而阻断普通发布。
 - 对每个用户上传的 Release 资产计算 SHA-256，并与 GitHub 返回的远端 digest 比对。
-- 通过决策矩阵区分无需提问、二元确认、选项对话卡片、自由文本问题和宿主权限提示；该问的决策必须在变更前询问，卡片不得因界面容量遗漏实质方案，并为每个方案说明结果、理由、取舍与推荐度。
+- 通过决策矩阵区分无需提问、二元确认、选项对话卡片、自由文本问题和宿主权限提示；该问的决策必须在变更前询问，卡片不得因界面容量遗漏实质方案，并说明各方案的结果与实质取舍；有证据支持时才标注推荐。
 - 根据代码、配置、测试和历史证据撰写 README 与 Release Notes，禁止虚构功能、兼容性和性能结论；Release Notes 默认采用中英双语与适量 emoji 分类，并提供可裁剪模板。
 - 使用 Conventional Commits 组织原子提交，并处理 `BREAKING CHANGE`、scope、body 和 footer。
-- 在 commit、push、tag 或 Release 前设置明确的人工授权边界。
+- 遵守 Commit、Push、Tag 和 Release 的授权范围；已授权的常规操作不重复确认，未决的实质选择、破坏性操作和新仓库转为 Public 等按规则另行决定。
 
 ## 工作流
 
 ```text
-项目盘点
-  → 敏感信息与隐私审查
-  → 项目专属 lint/test/build 检查
-  → README 与 Release 文案准备
-  → 精确审查发布集合
-  → 选择并验证 Git 提交身份
-  → 连接既有仓库，或按需创建 Private 仓库并上传
-  → Release 资产 SHA-256 与远端 digest 比对
-  → 验证远程结果
-  → 新建公共仓库场景：全新克隆并确认是否转为 Public
+项目盘点与候选范围确认
+  → 准备：扫描工作区、暂存区与候选历史，执行相关项目检查
+  → 按需准备 README 与 Release 文案，重跑受改动影响的检查
+  → 若需新 Commit：确认身份 → 精确暂存 → Commit 前审查 → Commit
+  → 发布：核验目标仓库 → 对最终 refs 执行 Push 前审查 → Push
+  → 比对远端 refs 与预期对象 ID
+  → 若需 Release：核验 Tag、版本和文案；有上传资产时先建 draft 并核对 digest
+  → 新建且计划公开的仓库：全新克隆验证 → 最终确认转为 Public
 ```
 
-发现敏感信息或必要检查失败时，工作流必须停止。报告只包含风险类型和 `文件:行号`，不回显敏感原值。
+发现敏感信息或必要检查失败时，工作流必须停止。风险报告包含类别、安全位置与处理建议；位置可为 `文件:行号`、Blob／ref 标识，仓库级问题也可能没有行号，不回显匹配到的敏感原值。
+
+## 🛡️ Commit 前与 Push 前：两道审查关卡
+
+**Commit 前检查内容进入本地历史的风险；Push 前检查候选历史上传的风险。** 两道关卡分别检查实际暂存快照和最终发布 refs，Commit 前的通过结果不能代替 Push 前审查。下图展示需要创建新 Commit 的路径；候选 refs 已提交且无需修改时，直接进入 Push 前审查，不人为创建额外 Commit。
+
+```mermaid
+flowchart TB
+    A["1 · 📝 修改代码<br/>Working Directory · 工作区"] --> B["2 · 📥 暂存<br/>git add · 选择允许提交的文件"]
+    B --> C["3 · 🛡️ Commit 前审查<br/>首道防线 · 检查实际暂存快照"]
+    C -->|通过且暂存快照未变化| D["4 · 📚 Commit<br/>形成本地 Git 历史"]
+    D --> E["5 · 🔎 Push 前审查<br/>上传前最后关口 · 检查候选 refs 及可达历史"]
+    E -->|通过且候选 refs 未变化| F["6 · 🚀 Push<br/>上传到已核验的 GitHub 目标"]
+    style C fill:#dcfce7,stroke:#15803d,color:#14532d,stroke-width:2px
+    style E fill:#ffedd5,stroke:#c2410c,color:#7c2d12,stroke-width:2px
+```
+
+### 脚本、Skill 流程与 CI 的分工
+
+| 执行者 | 实际负责的检查 | 需要配合的工作 |
+| --- | --- | --- |
+| `preflight.py` | 枚举候选内容、常见敏感信息模式、文件名与大小、基础仓库文件、Git 邮箱策略；输出发现项及快照／ref 标识 | 不执行项目测试、提交说明校验、远端所有权／可见性核验或 Commit／Push；结果不会自动保存为可复用审查记录 |
+| Codex 按 Skill 执行 | 审阅差异、按项目规则运行验证、检查提交说明、处理格式与上下文审查、核验目标及权限、执行获授权操作并记录证据 | 必须执行实际检查并依据结果放行；仅加载 Skill 或脚本返回 `0` 不代表整个流程已通过 |
+| GitHub Actions | Push、PR、手动运行时编译脚本、运行测试并校验行为语料；非 PR 事件还运行严格 committed-ref 预检 | 属于远端 CI；不能阻止已发生的上传，也不能替代本地两道关卡 |
+
+### 两道关卡分别审什么？
+
+| | 🛡️ Commit 前 · 首道防线 | 🔎 Push 前 · 上传前最后关口 |
+| --- | --- | --- |
+| **检查对象** | 暂存区（Index）中的实际文件内容、路径和模式 | 所有计划推送的分支／Tag，以及从它们可达的历史文本 Blob |
+| **审查重点** | 敏感信息、意外文件、提交身份、提交说明；审阅 `git diff --cached` 并完成相关项目检查 | 当前内容与历史中的敏感信息、扫描完整性、准确的推送范围、远程目标与可见性 |
+| **扫描模式** | `--staged-only --identity-policy noreply`（示例采用已选定的 noreply 身份） | `--committed-only --ref main`（按实际计划指定并重复 `--ref`） |
+| **通过证据** | `index_fingerprint` · 暂存快照指纹 | `publication_ref_oids` · 每个发布 ref 的对象 ID |
+| **何时重审** | 暂存内容、路径、模式或身份等相关输入改变后 | Commit 完成后必须执行；候选 ref、目标或相关输入改变后重审 |
+
+> **为什么要读暂存区？** 文件暂存后，即使你把工作区中的密钥删除或把文件改安全了，暂存快照仍可能保留旧内容。`--staged-only` 直接读取暂存 Blob；项目测试也应覆盖实际待提交内容。
+>
+> **为什么还要查历史？** 密钥从最新文件中删除后，仍可能存在于待推送 refs 可达的旧提交中。Push 前审查覆盖这些历史，而不只看最后一次 Commit；无关本地 refs 默认不纳入发布审查。
+
+🚦 **放行规则：** 敏感信息命中或必要扫描不完整时，停止对应操作；通过的检查仅在其输入未变化时有效。报告不回显敏感原值，审阅差异时也应避免将它们输出到报告中。
+
+✅ **Push 后核验：** 比对远端分支／Tag 与预期提交的对象 ID，确认上传结果。两道关卡由 Skill 流程执行，不会自动安装 Git hooks；推送后触发的 CI 不能替代本地 Commit 前或 Push 前审查。独立命令见[独立运行预检](#独立运行预检)，详细规则见[敏感信息审查](github-project-publisher/references/sensitive-data-review.md)。
 
 ## 规范依据与来源
 
@@ -96,7 +137,7 @@ github-project-publisher/
 - 支持本地 Skills 的 Codex；
 - Git；
 - Python 3.10 或更高版本；
-- GitHub CLI（用于身份解析、仓库操作、Release 和远端校验；浏览器仅作为认证或缺失能力的后备方案）。
+- 需要在线身份解析、GitHub 仓库操作、Release 或远端校验时，使用 GitHub CLI；仅运行默认本地预检不需要它。浏览器只作为认证或缺失能力的后备方案。
 
 预检脚本和 Release 完整性验证脚本只使用 Python 标准库；远端 Release 验证还需要 GitHub CLI。
 
@@ -141,22 +182,28 @@ $github-project-publisher 将当前项目安全发布到 OWNER/REPOSITORY：先�
 python .\github-project-publisher\scripts\preflight.py .
 ```
 
-默认命令以只读报告模式扫描 `HEAD`，不要求 GitHub 登录。发布其他分支或 Tag 时用可重复的 `--ref` 指定精确候选：
+默认命令只读扫描工作区、暂存区、非忽略未跟踪文件和 `HEAD` 可达历史；身份策略为 `report`，不要求 GitHub 登录。最终 Push 前用 `--committed-only` 排除无关本地工作，并用可重复的 `--ref` 指定实际计划发布的分支或 Tag（以下示例仅适用于两者都要推送的情况）：
 
 ```powershell
 python .\github-project-publisher\scripts\preflight.py . --committed-only --ref main --ref v1.0.0
 ```
 
+Commit 前使用以下命令扫描实际暂存快照。此处示例使用已选定的 noreply 身份；已明确选择个人邮箱时改用 `--identity-policy configured`。当前实现中，这两种严格身份策略都需要已核验的 GitHub 账户（通过 `gh api user`，或可信 CI 提供账户 ID 与登录名），并检查仓库级 `user.email`；不会自动配置身份。两阶段职责见上方审查流程图与对照表。
+
+```powershell
+python .\github-project-publisher\scripts\preflight.py . --staged-only --identity-policy noreply
+```
+
 在创建提交前选择 noreply 身份时，使用 `--identity-policy noreply`；预检会通过 `gh api user` 验证地址属于当前认证账户。如果 `gh` 不在 `PATH`，可传入：
 
 ```powershell
-python .\github-project-publisher\scripts\preflight.py . --ref main --identity-policy noreply --gh "C:\path\to\gh.exe"
+python .\github-project-publisher\scripts\preflight.py . --staged-only --identity-policy noreply --gh "C:\path\to\gh.exe"
 ```
 
-可信 CI 可以显式传入已核验的账户信息：
+可信 CI 可以显式传入独立核验的账户信息。以下为创建新 Commit 前的暂存区身份检查示例；不要从待检查提交反推账户信息：
 
 ```powershell
-python .\github-project-publisher\scripts\preflight.py . --ref main --identity-policy noreply --expected-github-id 12345678 --expected-github-login USERNAME
+python .\github-project-publisher\scripts\preflight.py . --staged-only --identity-policy noreply --expected-github-id 12345678 --expected-github-login USERNAME
 ```
 
 JSON 输出：
@@ -167,11 +214,11 @@ python .\github-project-publisher\scripts\preflight.py . --format json
 
 退出码：
 
-- `0`：内置扫描完成且没有阻断项；仍需执行项目专属检查。
-- `1`：发现阻断项，不得提交或发布。
-- `2`：扫描未能完成，按阻断项处理。
+- `0`：内置扫描未发现阻断项；默认允许警告，仍需处理必要的上下文审查并执行项目专属检查。
+- `1`：存在阻断项（包括以发现项报告的必要扫描不完整）；使用 `--strict` 时，警告也返回 `1`。不得将该结果作为通过证据。
+- `2`：参数、路径或工具调用等错误导致命令未完成，按未通过处理。
 
-预检默认使用 `--identity-policy report`，扫描当前工作树、非忽略未跟踪文件和 `HEAD`，不会因既有贡献者身份不同而阻断。最终推送前使用 `--committed-only` 将门禁限定到指定 refs。创建新提交前使用 `--identity-policy noreply` 或在明确选择个人邮箱后使用 `--identity-policy configured`。只有用户明确要求单作者或历史匿名化门禁时才加 `--history-identity-policy strict`。报告不会回显实际邮箱或敏感值。
+预检默认使用 `--identity-policy report`，扫描当前工作树、暂存区、非忽略未跟踪文件和 `HEAD`，不会因既有贡献者身份不同而阻断。最终推送前使用 `--committed-only` 将门禁限定到指定 refs。创建新提交前使用 `--identity-policy noreply` 或在明确选择个人邮箱后使用 `--identity-policy configured`。只有用户明确要求单作者或历史匿名化门禁时才加 `--history-identity-policy strict`。报告不会回显实际邮箱或敏感值。
 
 ## 开发与验证
 
@@ -186,7 +233,7 @@ python .\evals\run_skill_evals.py
 python .\evals\run_skill_evals.py --execute
 ```
 
-GitHub Actions 在 push、pull request 和手动运行时执行确定性测试；真实 Codex eval 仅在手动选择 `run_live_evals` 且仓库配置了 `OPENAI_API_KEY` 时运行。
+GitHub Actions 在 push、pull request 和手动运行时执行确定性测试；真实 Codex eval 的任务仅在手动选择 `run_live_evals` 时启动，任务要求仓库配置 `OPENAI_API_KEY`；缺失凭证时失败，不会运行真实 eval。这些 eval 评估交互策略，不执行真实发布。
 
 Release 资产上传后执行：
 
@@ -198,12 +245,12 @@ python .\github-project-publisher\scripts\release_integrity.py OWNER/REPO TAG .\
 
 ## 安全模型
 
-扫描器不会输出匹配到的敏感值。真实凭证如果进入过 Git 历史，应先撤销或轮换，再由仓库所有者评估历史清理；不得通过强制推送临时掩盖问题。安全问题的报告方式见 [SECURITY.md](SECURITY.md)。
+扫描器不回显匹配行或敏感值；报告仍包含仓库路径、文件位置和 Git 对象标识，分享报告前应审阅这些元数据。真实凭证如果进入过 Git 历史，应先撤销或轮换，再由仓库所有者评估历史清理；不得通过强制推送临时掩盖问题。安全问题的报告方式见 [SECURITY.md](SECURITY.md)。
 
 ## 局限性
 
 - 模式扫描无法证明项目绝对不存在敏感信息。
-- 历史扫描覆盖所选发布 refs 可达的文本 Blob；二进制、图片、压缩包、加密内容和专有格式仍需人工或领域工具检查。
+- 暂存区与历史模式的内置文本扫描上限为单个 Blob 25 MiB，超限文本会阻断；二进制、图片、压缩包、加密内容和专有格式仍需人工或领域工具检查。暂存区包含 submodule 时，当前扫描器以需要单独审查为由阻断，不递归扫描子模块。
 - 无关本地 refs 默认不扫描；如果计划执行 `--all`、`--mirror` 或多 ref 推送，必须显式把它们纳入候选审查。
 - 本 Skill 不自带 GitHub 账户权限；发布仍依赖本机 Git、GitHub CLI 或已配置的连接能力。
 - 既有协作身份默认作为来源信息保留。只有明确请求严格单身份历史审查时才阻断不匹配身份；任何历史重写都必须另行授权。

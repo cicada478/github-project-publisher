@@ -15,6 +15,7 @@ Use **MUST** for blockers, **SHOULD** for expectations that need a recorded reas
 - MUST NOT display a sensitive value or matching source line; report category and safe location only.
 - MUST treat a real exposed credential as compromised and recommend revocation or rotation before history repair.
 - MUST apply [identity-policy.md](identity-policy.md) to commits or annotated Tags created by the workflow. Existing collaborative identities are provenance unless strict history review was explicitly requested.
+- MUST scan the actual index snapshot after staging and before Commit; worktree content cannot substitute for indexed Blobs. Bind commit evidence to `index_fingerprint` and rerun when the index changes. Bind the separate final Push gate to every planned ref and its resolved object ID after Commit.
 - SHOULD run an already configured repository secret scanner in addition to the bundled baseline when it provides complementary coverage.
 
 ## Repository quality

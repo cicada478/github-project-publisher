@@ -327,6 +327,93 @@ class HistoricalContentTests(unittest.TestCase):
         self.assertEqual(run.call_args.args[0][1:3], ["api", "user"])
 
 
+class StagedContentTests(unittest.TestCase):
+    def test_index_secret_survives_worktree_edit_or_deletion(self) -> None:
+        for deleted in (False, True):
+            with self.subTest(deleted=deleted), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                make_repository(root, NOREPLY)
+                token = "ghp_" + "Z" * 36
+                target = root / "candidate.txt"
+                target.write_text(token, encoding="utf-8")
+                run_git(root, "add", "--", target.name)
+                if deleted:
+                    target.unlink()
+                else:
+                    target.write_text("safe placeholder", encoding="utf-8")
+                metadata, findings = preflight.inspect_repository(root, staged_only=True)
+                self.assertIn("staged-github-token", {f.code for f in findings})
+                self.assertFalse(metadata["worktree_content_scanned"])
+                self.assertTrue(metadata["staged_content_scanned"])
+                self.assertTrue(metadata["index_fingerprint"])
+                self.assertNotIn(token, str(findings))
+                if not deleted:
+                    _, preparation = preflight.inspect_repository(root)
+                    self.assertIn("staged-github-token", {f.code for f in preparation})
+                _, push = preflight.inspect_repository(root, include_worktree=False)
+                self.assertNotIn("staged-github-token", {f.code for f in push})
+
+    def test_staged_gate_ignores_untracked_and_unstaged_content(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_repository(root, NOREPLY)
+            (root / "local.txt").write_text("ghp_" + "Y" * 36, encoding="utf-8")
+            (root / "README.md").write_text("ghp_" + "X" * 36, encoding="utf-8")
+            _, findings = preflight.inspect_repository(root, staged_only=True)
+            self.assertFalse([f for f in findings if f.severity == "blocker"])
+
+    def test_fingerprint_changes_only_with_index_content(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_repository(root, NOREPLY)
+            before, _ = preflight.inspect_repository(root, staged_only=True)
+            (root / "README.md").write_text("# Updated", encoding="utf-8")
+            unstaged, _ = preflight.inspect_repository(root, staged_only=True)
+            self.assertEqual(before["index_fingerprint"], unstaged["index_fingerprint"])
+            run_git(root, "add", "--", "README.md")
+            staged, _ = preflight.inspect_repository(root, staged_only=True)
+            self.assertNotEqual(before["index_fingerprint"], staged["index_fingerprint"])
+
+    def test_initial_index_and_deleted_readme_use_index_paths(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            run_git(root, "init", "--initial-branch=main")
+            target = root / "README.md"
+            target.write_text("# Initial", encoding="utf-8")
+            run_git(root, "add", "--", "README.md")
+            target.unlink()
+            metadata, findings = preflight.inspect_repository(root, staged_only=True)
+            self.assertEqual(metadata["publication_refs"], [])
+            self.assertNotIn("missing-readme", {f.code for f in findings})
+            run_git(root, "rm", "--cached", "--", "README.md")
+            _, findings = preflight.inspect_repository(root, staged_only=True)
+            self.assertIn("missing-readme", {f.code for f in findings})
+
+    def test_large_index_text_and_index_failure_block(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_repository(root, NOREPLY)
+            with patch.object(preflight, "MAX_TEXT_SCAN_BYTES", 2):
+                _, findings = preflight.inspect_repository(root, staged_only=True)
+            self.assertIn("staged-content-scan-incomplete", {f.code for f in findings})
+            with patch.object(preflight, "index_snapshot", side_effect=RuntimeError("unreadable index")):
+                _, findings = preflight.inspect_repository(root, staged_only=True)
+            self.assertIn("staged-content-scan-incomplete", {f.code for f in findings})
+
+    def test_conflicted_index_blocks(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            make_repository(root, NOREPLY)
+            actual_git = preflight.git
+            def conflicted(path: Path, *args: str):
+                if args == ("ls-files", "--stage", "-z"):
+                    return 0, "100644 " + "a" * 40 + " 1\tREADME.md\0"
+                return actual_git(path, *args)
+            with patch.object(preflight, "git", side_effect=conflicted):
+                _, findings = preflight.inspect_repository(root, staged_only=True)
+            self.assertIn("staged-content-scan-incomplete", {f.code for f in findings})
+
+
 class ReleaseIntegrityTests(unittest.TestCase):
     @patch("release_integrity.subprocess.run")
     def test_draft_release_falls_back_to_paginated_list(self, run) -> None:

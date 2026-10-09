@@ -21,8 +21,8 @@ git config --local user.email "${ACCOUNT_ID}+${ACCOUNT_LOGIN}@users.noreply.gith
 Run preflight with the matching policy:
 
 ```sh
-python scripts/preflight.py <repository> --identity-policy noreply
-python scripts/preflight.py <repository> --identity-policy configured
+python scripts/preflight.py <repository> --staged-only --identity-policy noreply
+python scripts/preflight.py <repository> --staged-only --identity-policy configured
 ```
 
 The `noreply` policy verifies ownership against `gh api user`. Trusted offline CI may provide both `--expected-github-id` and `--expected-github-login`. Never derive those values from the commits being checked. The `configured` policy accepts the explicitly selected repository-local address and reports its public exposure without printing it.

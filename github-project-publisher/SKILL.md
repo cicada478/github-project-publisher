@@ -21,11 +21,11 @@ Read [references/interaction-policy.md](references/interaction-policy.md) only w
 ## Establish and verify the candidate
 
 1. Read repository instructions and identify the root, worktree state, exact branch/Tag/commit, staged paths, Release assets, destination, and refspec relevant to the request.
-2. During preparation, run `python scripts/preflight.py <repository>` to inspect the worktree, non-ignored untracked files, and `HEAD`. Before pushing committed refs, run `python scripts/preflight.py <repository> --committed-only --ref <candidate-ref>` for every ref in the planned push.
+2. During preparation, run `python scripts/preflight.py <repository>` to inspect the worktree, index, non-ignored untracked files, and `HEAD`. After staging and before creating a commit, run `python scripts/preflight.py <repository> --staged-only --identity-policy <selected-policy>` and review the staged diff and relevant validation. Before pushing committed refs, run `python scripts/preflight.py <repository> --committed-only --ref <candidate-ref>` for every ref in the planned push.
 3. Run the project's relevant lint, test, type-check, build, package, and documentation checks. Do not install dependencies or alter toolchains unless authorized.
 4. Report **blocker**, **warning**, and **advisory** findings with evidence and remedies. Read [references/standards.md](references/standards.md) for acceptance criteria.
 
-Treat successful checks as evidence tied to their inputs. Re-run only checks invalidated by a change to worktree/staged content, resolved ref OIDs, identity policy, relevant configuration, assets, destination, or remote state. Never reuse incomplete or failed evidence. A final committed-ref preflight is still required after creating a commit because the candidate ref changed.
+Treat successful checks as evidence tied to their inputs. Re-run only checks invalidated by a change to worktree/staged content, resolved ref OIDs, identity policy, relevant configuration, assets, destination, or remote state. Never reuse incomplete or failed evidence. Commit evidence is tied to the reported `index_fingerprint`; recheck it before committing and rerun the gate if staged paths, modes, or Blob IDs change. Push evidence is tied to `publication_ref_oids`. A final committed-ref preflight is still required after creating a commit because the candidate ref changed.
 
 ## Protect sensitive data
 

@@ -95,7 +95,8 @@ Semantic Versioning mapping applies only when the project has adopted SemVer and
 4. Choose the type from behavior and intent; choose a stable scope only when useful.
 5. Draft the subject from the staged result. Add rationale, migration, issue references, or breaking-change metadata only when evidenced.
 6. Run the repository's commit-message validation if configured. Otherwise check this profile manually.
-7. After committing, inspect `git show --stat --oneline --decorate HEAD` and verify that the commit contains the intended files and message.
+7. Run `python scripts/preflight.py <repository> --staged-only --identity-policy <selected-policy>` after staging. Block on sensitive findings or incomplete scans. Record the `index_fingerprint`, inspect the staged diff without exposing sensitive values, and complete relevant project checks; worktree checks alone do not validate different staged content. Confirm the index fingerprint is unchanged immediately before committing; rerun affected checks if it changes.
+8. After committing, inspect `git show --stat --oneline --decorate HEAD` and verify that the commit contains the intended files and message.
 
 Do not use `git add -A`, amend, interactive rebase, or history rewriting to enforce this convention when unrelated user work or published history may be affected. Ask before installing Commitizen, commitlint, hooks, or other persistent tooling.
 

@@ -30,11 +30,19 @@ Examples and test vectors are not automatically safe. Confirm that they are docu
 
 ## Run the baseline
 
-During preparation, include worktree and non-ignored untracked content:
+During preparation, include worktree, index, and non-ignored untracked content:
 
 ```text
 python scripts/preflight.py <repository>
 ```
+
+After staging, scan the exact index snapshot before Commit:
+
+```text
+python scripts/preflight.py <repository> --staged-only --identity-policy <selected-policy>
+```
+
+This gate reads indexed Blobs even when the worktree file was subsequently edited or deleted. It excludes unrelated untracked content and existing history. Record `index_fingerprint`; staged changes invalidate the result. Review binaries and staged project behavior with appropriate tools.
 
 For the final committed candidate, exclude unrelated local work and name every ref in the planned push:
 
@@ -53,3 +61,5 @@ Report only category, safe path or commit/Tag identifier, and remediation. Never
 If a real credential was committed or shared, revoke or rotate it first. Then remove the source, prevent recurrence, and let the repository owner decide whether history repair is necessary. Do not improvise force-pushes or Tag replacement. Re-run only checks invalidated by content, identity, configuration, packaging, asset, or destination changes; never reuse incomplete evidence.
 
 Pattern matching cannot prove absence of sensitive data. Encoded or encrypted content, images, proprietary formats, archives, domain-specific identifiers, and secrets assembled across variables require contextual or format-specific review.
+
+These commands are workflow gates, not automatically installed Git hooks. CI triggered by a push verifies content after upload and cannot replace either local gate.

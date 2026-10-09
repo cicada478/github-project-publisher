@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import re
@@ -565,8 +566,11 @@ def scan_history_content(
     metadata: dict[str, object],
     refs: list[str],
     worktree_blobs: dict[str, str] | None = None,
+    *,
+    entries: list[tuple[str, str, int]] | None = None,
+    scope: str = "history",
 ) -> None:
-    entries = history_blob_entries(root, refs)
+    entries = history_blob_entries(root, refs) if entries is None else entries
     scanned = 0
     deduplicated = 0
     equivalent = worktree_blobs or {}
@@ -575,13 +579,13 @@ def scan_history_content(
             deduplicated += 1
             continue
         display_path = path_text or "<pathless-blob>"
-        historical_location = f"history:{sha[:12]}:{display_path}"
+        historical_location = f"{scope}:{sha[:12]}:{display_path}"
         path = Path(display_path)
         lower_name = path.name.lower()
         if lower_name in SENSITIVE_NAMES or lower_name.startswith(".env.") or path.suffix.lower() in {".key", ".p12", ".pfx", ".pem", ".jks", ".keystore", ".ovpn"}:
             findings.append(Finding(
-                "blocker", "history-sensitive-filename",
-                "Potential credential or private-key file exists in reachable Git history; inspect without disclosing contents.",
+                "blocker", f"{scope}-sensitive-filename",
+                "Potential credential or private-key file exists in candidate Git objects; inspect without disclosing contents.",
                 historical_location,
             ))
         text_like = path.suffix.lower() in TEXT_EXTENSIONS or lower_name in {
@@ -589,28 +593,28 @@ def scan_history_content(
         }
         if size >= 100 * 1024 * 1024:
             findings.append(Finding(
-                "blocker", "history-oversize-file",
-                "A file in candidate history is at least 100 MiB; verify current GitHub limits or use Git LFS when appropriate.",
+                "blocker", f"{scope}-oversize-file",
+                "A candidate Git blob is at least 100 MiB; verify current GitHub limits or use Git LFS when appropriate.",
                 historical_location,
             ))
         if size > MAX_TEXT_SCAN_BYTES:
             prefix = blob_prefix(root, sha)
             if prefix is None:
                 findings.append(Finding(
-                    "blocker", "history-content-scan-incomplete",
-                    "A historical blob could not be classified for content scanning.",
+                    "blocker", f"{scope}-content-scan-incomplete",
+                    "A candidate Git blob could not be classified for content scanning.",
                     historical_location,
                 ))
             elif text_like or b"\0" not in prefix:
                 findings.append(Finding(
-                    "blocker", "history-content-scan-incomplete",
-                    f"Historical text-like blob exceeds the {MAX_TEXT_SCAN_BYTES // (1024 * 1024)} MiB scan limit.",
+                    "blocker", f"{scope}-content-scan-incomplete",
+                    f"Candidate text-like blob exceeds the {MAX_TEXT_SCAN_BYTES // (1024 * 1024)} MiB scan limit.",
                     historical_location,
                 ))
             else:
                 findings.append(Finding(
-                    "warning", "history-large-binary-uninspected",
-                    "Large historical binary content was not pattern-scanned; verify it with format-appropriate tooling if it will be published.",
+                    "warning", f"{scope}-large-binary-uninspected",
+                    "Large candidate binary content was not pattern-scanned; verify it with format-appropriate tooling if it will be published.",
                     historical_location,
                 ))
             continue
@@ -622,8 +626,8 @@ def scan_history_content(
         )
         if proc.returncode != 0:
             findings.append(Finding(
-                "blocker", "history-content-scan-failed",
-                "A reachable historical blob could not be read.", historical_location,
+                "blocker", f"{scope}-content-scan-failed",
+                "A candidate Git blob could not be read.", historical_location,
             ))
             continue
         data = proc.stdout
@@ -631,10 +635,49 @@ def scan_history_content(
             continue
         scanned += 1
         text = data.decode("utf-8", errors="replace")
-        scan_text_lines(text.splitlines(), historical_location, path.suffix, findings, "history-")
-    metadata["history_blob_count"] = len(entries)
-    metadata["historical_text_blob_count"] = scanned
-    metadata["deduplicated_history_blob_count"] = deduplicated
+        scan_text_lines(text.splitlines(), historical_location, path.suffix, findings, f"{scope}-")
+    metadata[f"{scope}_blob_count"] = len(entries)
+    metadata["historical_text_blob_count" if scope == "history" else "staged_text_blob_count"] = scanned
+    metadata[f"deduplicated_{scope}_blob_count"] = deduplicated
+
+
+def index_snapshot(root: Path) -> tuple[str, list[tuple[str, str, int]], set[str]]:
+    """Read the complete index, including files absent or different in the worktree."""
+    code, output = git(root, "ls-files", "--stage", "-z")
+    if code != 0:
+        raise RuntimeError("Git index could not be enumerated")
+    objects: list[tuple[str, str]] = []
+    paths: set[str] = set()
+    for row in output.split("\0"):
+        if not row:
+            continue
+        fields, separator, path = row.partition("\t")
+        parts = fields.split()
+        if not separator or len(parts) != 3 or parts[2] != "0":
+            raise RuntimeError("Git index is malformed or contains unresolved conflicts")
+        mode, oid, _ = parts
+        paths.add(path)
+        if mode == "160000":
+            raise RuntimeError("Indexed submodule content requires a separate candidate review")
+        if mode not in {"100644", "100755", "120000"}:
+            raise RuntimeError("Git index contains an unsupported entry mode")
+        objects.append((oid, path))
+    proc = subprocess.run(
+        ["git", "-C", str(root), "cat-file", "--batch-check=%(objectname) %(objecttype) %(objectsize)"],
+        input="".join(oid + "\n" for oid, _ in objects),
+        capture_output=True, text=True, encoding="utf-8", errors="replace", check=False,
+    )
+    rows = proc.stdout.splitlines()
+    if proc.returncode != 0 or len(rows) != len(objects):
+        raise RuntimeError("Indexed blobs could not be classified completely")
+    entries: list[tuple[str, str, int]] = []
+    for (oid, path), row in zip(objects, rows):
+        parts = row.split()
+        if len(parts) != 3 or parts[0] != oid or parts[1] != "blob" or not parts[2].isdigit():
+            raise RuntimeError("Indexed blob could not be read or classified")
+        entries.append((oid, path, int(parts[2])))
+    fingerprint = hashlib.sha256(output.encode("utf-8")).hexdigest()
+    return fingerprint, entries, paths
 
 
 def scan_content(root: Path, files: Iterable[Path], findings: list[Finding]) -> None:
@@ -694,7 +737,10 @@ def inspect_repository(
     account_error: str | None = None,
     requested_refs: Iterable[str] | None = None,
     include_worktree: bool = True,
+    staged_only: bool = False,
 ) -> tuple[dict[str, object], list[Finding]]:
+    if staged_only:
+        include_worktree = False
     findings: list[Finding] = []
     code, _ = git(root, "rev-parse", "--show-toplevel")
     is_git = code == 0
@@ -704,7 +750,7 @@ def inspect_repository(
         findings.append(Finding("blocker", "not-git-repository", "No Git repository was detected."))
     else:
         try:
-            refs = publication_refs(root, requested_refs)
+            refs = [] if staged_only else publication_refs(root, requested_refs)
         except RuntimeError as exc:
             findings.append(Finding("blocker", "publication-ref-invalid", str(exc), "git-ref"))
             refs = []
@@ -733,6 +779,24 @@ def inspect_repository(
             findings.append(Finding("advisory", "no-remote", "No Git remote is configured."))
         files = candidate_files(root, is_git) if include_worktree else []
         equivalent_blobs = worktree_equivalent_blobs(root, files) if include_worktree else {}
+        index_paths: set[str] = set()
+        if include_worktree or staged_only:
+            try:
+                fingerprint, entries, index_paths = index_snapshot(root)
+                metadata["index_fingerprint"] = fingerprint
+                scan_history_content(
+                    root, findings, metadata, [], equivalent_blobs,
+                    entries=entries, scope="staged",
+                )
+                for _, path_text, _ in entries:
+                    path = Path(path_text)
+                    if {part.lower() for part in path.parts} & GENERATED_DIRS or path.suffix.lower() in TEMP_SUFFIXES or is_log_path(path):
+                        findings.append(Finding("warning", "staged-artifact", "Indexed generated, temporary, or diagnostic artifact requires inclusion review.", f"staged:{path_text}"))
+                code, final_index = git(root, "ls-files", "--stage", "-z")
+                if code != 0 or hashlib.sha256(final_index.encode("utf-8")).hexdigest() != fingerprint:
+                    raise RuntimeError("Git index changed during scanning; rerun the commit gate")
+            except RuntimeError as exc:
+                findings.append(Finding("blocker", "staged-content-scan-incomplete", str(exc), "git-index"))
         scan_git_identities(
             root, findings, metadata, identity_policy, history_identity_policy,
             approved_noreply, account_error, refs,
@@ -748,7 +812,10 @@ def inspect_repository(
 
     if not is_git:
         files = candidate_files(root, is_git) if include_worktree else []
-    if is_git and not include_worktree:
+    if is_git and staged_only:
+        names = {name.lower() for name in index_paths}
+        metadata["candidate_file_count"] = len(index_paths)
+    elif is_git and not include_worktree:
         try:
             ref_paths = candidate_ref_paths(root, metadata.get("publication_refs", []))
         except RuntimeError as exc:
@@ -760,6 +827,7 @@ def inspect_repository(
         names = {relative(root, path).lower() for path in files}
         metadata["candidate_file_count"] = len(files)
     metadata["worktree_content_scanned"] = include_worktree
+    metadata["staged_content_scanned"] = is_git and (include_worktree or staged_only)
     if not any(name in names for name in {"readme", "readme.md", "readme.rst", "readme.txt"}):
         findings.append(Finding("blocker", "missing-readme", "No root README was found."))
     if ".gitignore" not in names:
@@ -778,6 +846,10 @@ def print_text(metadata: dict[str, object], findings: list[Finding]) -> None:
     print(f"Repository: {metadata['root']}")
     print(f"Git: {metadata['is_git_repository']}  Branch: {metadata.get('branch')}  HEAD: {metadata.get('head')}")
     print(f"Candidate files: {metadata['candidate_file_count']}  Worktree changes: {metadata.get('worktree_change_count', 'n/a')}")
+    if "index_fingerprint" in metadata:
+        print(f"Index fingerprint: {metadata['index_fingerprint']}")
+    for ref, oid in metadata.get("publication_ref_oids", {}).items():
+        print(f"Publication ref: {ref} {oid}")
     print(f"Findings: {counts['blocker']} blocker(s), {counts['warning']} warning(s), {counts['advisory']} advisory item(s)")
     for item in findings:
         location = ""
@@ -811,15 +883,22 @@ def main() -> int:
         "--ref", action="append", dest="refs",
         help="Publication ref to scan; repeat for multiple refs. Defaults to HEAD rather than every local ref.",
     )
-    parser.add_argument(
+    modes = parser.add_mutually_exclusive_group()
+    modes.add_argument(
         "--committed-only", action="store_true",
         help="Scan selected committed refs without treating current worktree and untracked content as publication candidates.",
+    )
+    modes.add_argument(
+        "--staged-only", action="store_true",
+        help="Scan the exact index snapshot before committing, excluding worktree, untracked files, and existing history.",
     )
     parser.add_argument("--gh", help="Path to the GitHub CLI executable used to resolve the authenticated account")
     parser.add_argument("--expected-github-id", help="Expected numeric GitHub account ID; use with --expected-github-login")
     parser.add_argument("--expected-github-login", help="Expected GitHub login; use with --expected-github-id")
     parser.add_argument("--strict", action="store_true", help="Return failure when warnings exist")
     args = parser.parse_args()
+    if args.staged_only and args.refs:
+        parser.error("--staged-only cannot be combined with --ref")
     root = Path(args.repository).expanduser().resolve()
     if not root.is_dir():
         print(f"error: repository path is not a directory: {root}", file=sys.stderr)
@@ -841,7 +920,8 @@ def main() -> int:
             approved_noreply=approved_noreply,
             account_error=account_error,
             requested_refs=args.refs,
-            include_worktree=not args.committed_only,
+            include_worktree=not (args.committed_only or args.staged_only),
+            staged_only=args.staged_only,
         )
     except (FileNotFoundError, RuntimeError) as exc:
         print(f"error: publication preflight could not complete: {exc}", file=sys.stderr)

@@ -29,13 +29,13 @@ git ls-remote https://github.com/OWNER/REPO.git
 
 Stop if identity, ownership, visibility, or history conflicts with the user's intent. Apply [identity-policy.md](identity-policy.md) only if the workflow will create a commit or annotated Tag.
 
-Review the staged diff and run the final candidate gate once its inputs are stable:
+After any commit has been created, run the final push gate against the exact committed refs once its inputs are stable:
 
 ```sh
-python scripts/preflight.py <repository> --committed-only --ref BRANCH --identity-policy noreply
+python scripts/preflight.py <repository> --committed-only --ref BRANCH
 ```
 
-Repeat `--ref` for every ref in the planned push and use the selected identity policy. Reuse this result while the reported ref OIDs, identity policy, relevant configuration, and candidate assets remain unchanged. A clean already committed tree needs no synthetic commit.
+Repeat `--ref` for every ref in the planned push. The default identity report preserves collaborative provenance. Apply the selected identity policy at the commit gate when creating a new commit; pushing existing commits alone does not require a new identity choice. Reuse this result while the reported ref OIDs, identity policy, relevant configuration, and candidate assets remain unchanged. A clean already committed tree needs no synthetic commit.
 
 ## Create or connect the repository
 
