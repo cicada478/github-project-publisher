@@ -6,11 +6,9 @@ A Codex GitHub publishing assistant for ordinary project authors. It can perform
 
 ## Project status
 
-This repository contains the GitHub Project Publisher skill source. The stable version recorded in this repository is [`v0.4.3`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.4.3), with its changes documented in [RELEASE_NOTES.md](RELEASE_NOTES.md).
+This repository contains the GitHub Project Publisher skill source. The current stable version is [`v0.4.4`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.4.4); see [RELEASE_NOTES.md](RELEASE_NOTES.md) for the changes.
 
-The current source also contains index scanning not yet included in a stable release (`--staged-only`) and two-stage review improvements. The related documentation below describes current source; a `v0.4.3` download does not include those improvements.
-
-The next version is being prepared as `v0.4.3..v0.4.4` and has not been released. This update clarifies that local audits need no predetermined publication target or visibility. Unresolved choices pause only dependent work; independent, authorized checks and preparation can continue.
+v0.4.4 includes index scanning (`--staged-only`) and separate Commit/Push gates, clarifies local-audit and unresolved-decision boundaries, and refines bilingual release writing and commit guidance. The older `v0.4.3` release does not include these improvements.
 
 ## Capabilities
 

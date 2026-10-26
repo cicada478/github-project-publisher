@@ -1,3 +1,78 @@
+# v0.4.4 — 分阶段审查与发布指南 / Staged review and publishing guidance
+
+发布日期 / Release date: 2026-10-26
+发布类型 / Release type: 稳定版 / Stable
+
+[中文](#v044-zh) | [English](#v044-en)
+
+<a id="v044-zh"></a>
+
+## 中文
+
+v0.4.4 将 Commit 前审查绑定到实际暂存内容，明确不同发布模式的执行边界，并完善双语文案、分类和 Commit 规范。
+
+### 本次更新
+
+#### 🐛 修复
+
+- 新增 `--staged-only`，直接检查暂存 Blob，避免工作区已删除或修正的内容掩盖暂存区中的敏感信息。Commit 前记录 `index_fingerprint`，暂存路径、模式或内容变化后重新检查。
+- Commit 与 Push 使用两道独立关卡：提交后对最终计划推送的 refs 及可达历史执行审查，并以 `publication_ref_oids` 绑定候选对象。准备阶段可复用完全相同 Blob 的内容扫描。
+
+#### 🔄 变更
+
+- 只做本地审计时，无需预先确定发布目标或可见性；目标相关检查记为待定。未决选择只暂停依赖答案的工作，继续独立且已授权的检查与准备。
+- 新 Commit 在仓库规则允许时采用 `fix(scope): 🐛 description` 等格式，emoji 放在描述开头；保留 Conventional Commits 类型、破坏性标记和已有校验规则。
+
+#### 📚 文档与维护
+
+- README 说明模式分流、参考资料按需读取及适用边界，区分严格执行的检查与可按项目调整的文档组织和情境判断。
+- 完善双语 README 互链、Release 同页语言跳转、固定默认 emoji 分类、Full Changelog 及贡献者核实规则；补充带理由和适用边界的发布案例。
+- 新增 3 个策略对照场景，语料共 15 个；明确策略问答不等于自动触发、真实工具行为或产物质量验证。开发日志通过 `DEVLOG*.md` 保留本地。
+
+### 升级与验证
+
+替换已安装的完整 `github-project-publisher` 文件夹即可升级。本版本没有新增外部 Python 依赖；暂存区门禁使用 `--staged-only`，最终 Push 门禁继续使用 `--committed-only --ref <ref>`。
+
+- 33 项回归测试已通过；后续发布文档修改另经 2 项文档测试检查。
+- 15 个策略场景的结构与覆盖校验、Skill 快速校验通过；未运行真实模型 eval。
+- 发布前审查覆盖实际暂存内容与最终发布 refs；路径启发式提示仍需结合用途判断，模式匹配不能证明不存在敏感信息。
+
+<a id="v044-en"></a>
+
+## English
+
+v0.4.4 binds pre-Commit review to actual indexed content, clarifies execution boundaries across publishing modes, and improves bilingual writing, categories, and commit guidance.
+
+### What's Changed
+
+#### 🐛 Fixes
+
+- Adds `--staged-only` to inspect indexed Blobs directly, preventing worktree edits or deletions from hiding sensitive indexed content. Records `index_fingerprint` before Commit and requires a recheck when indexed paths, modes, or content change.
+- Uses separate Commit and Push gates: after committing, reviews the final planned refs and reachable history, binding candidates to `publication_ref_oids`. Preparation can reuse content scans for identical Blobs.
+
+#### 🔄 Changes
+
+- Local audits need no predetermined publication target or visibility; target-dependent checks remain pending. Unresolved choices pause only dependent work while independent, authorized checks and preparation continue.
+- New commits use forms such as `fix(scope): 🐛 description` when repository policy allows. Emoji starts the description, preserving Conventional Commits types, breaking-change markers, and existing validation rules.
+
+#### 📚 Docs & Chores
+
+- Explains mode selection, references read when needed, and applicability boundaries in both READMEs, distinguishing strict checks from adaptable document organization and contextual decisions.
+- Refines bilingual README links, same-page Release language navigation, fixed default emoji categories, Full Changelog links, and verified contributor attribution; adds publishing cases with reasons and boundaries.
+- Adds three contrasting policy scenarios for a total of 15. Clarifies that policy answers do not validate automatic activation, actual tool behavior, or artifact quality. Keeps developer journals local through `DEVLOG*.md`.
+
+### Upgrade and verification
+
+Upgrade by replacing the complete installed `github-project-publisher` folder. No external Python dependencies were added. Use `--staged-only` for the index gate and continue using `--committed-only --ref <ref>` for the final Push gate.
+
+- All 33 regression tests passed; subsequent release-document changes were checked with two documentation tests.
+- Structure and coverage validation passed for 15 policy scenarios, and Skill quick validation passed. Live model evals were not run.
+- Pre-publication review covers indexed content and final publication refs. Heuristic path findings still require contextual review; pattern matching cannot prove the absence of sensitive data.
+
+**完整变更 / Full Changelog**: [`v0.4.3...v0.4.4`](https://github.com/cicada478/github-project-publisher/compare/v0.4.3...v0.4.4)
+
+---
+
 # v0.4.3 — 双语发布说明与分类模板 / Bilingual release notes and category template
 
 发布日期 / Release date: 2026-10-06

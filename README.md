@@ -6,11 +6,9 @@
 
 ## 项目状态
 
-本仓库包含 GitHub Project Publisher 的 Skill 源码。已记录的稳定版本为 [`v0.4.3`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.4.3)，该版本的变更见 [RELEASE_NOTES.md](RELEASE_NOTES.md)。
+本仓库包含 GitHub Project Publisher 的 Skill 源码。当前稳定版本为 [`v0.4.4`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.4.4)，完整变更见 [RELEASE_NOTES.md](RELEASE_NOTES.md)。
 
-当前源码还包含尚未随稳定版发布的暂存区扫描（`--staged-only`）及两阶段审查改进；以下相关说明适用于当前源码，下载 `v0.4.3` 不包含这些改进。
-
-下一版本按 `v0.4.3..v0.4.4` 准备，尚未发布。本轮明确了本地审计无需预先确定发布目标或可见性，以及未决选择只暂停依赖其答案的工作；不依赖该答案的已授权检查与准备可以继续。
+v0.4.4 包含暂存区扫描（`--staged-only`）和独立的 Commit／Push 审查，明确本地审计与未决选择的执行边界，并完善双语发布文案及 Commit 规范。旧版 `v0.4.3` 不包含这些改进。
 
 ## 核心能力
 
