@@ -16,11 +16,11 @@ Help ordinary project authors publish safely without requiring Git or security e
 
 A request to publish authorizes ordinary in-scope preparation and a non-force push, not destructive history changes, destination overwrite, or an unrequested visibility change. Create a new destination privately first only when its requested end state is public; verify it before asking for the final public conversion. Preserve an existing repository's visibility and workflow.
 
-Read [references/interaction-policy.md](references/interaction-policy.md) only when a consequential choice is unresolved.
+If existing authorization and project evidence do not settle a choice affecting the destination, rights, disclosure, destructive impact, delivery path, or release meaning, read [references/interaction-policy.md](references/interaction-policy.md) before the affected operation. Pause only work that depends on the answer; continue independent, authorized inspection or preparation. Do not ask for a publication destination or visibility merely to complete a local audit.
 
 ## Establish and verify the candidate
 
-1. Read repository instructions and identify the root, worktree state, exact branch/Tag/commit, staged paths, Release assets, destination, and refspec relevant to the request.
+1. Read repository instructions and identify the root, worktree state, and candidate content or exact branch/Tag/commit relevant to the request. Identify staged paths, Release assets, destination, visibility, and refspec only when the requested check or operation depends on them. For a local audit without a publication target, record destination and visibility as undetermined and complete the local checks; resolve them before any target-dependent check or external operation.
 2. During preparation, run `python scripts/preflight.py <repository>` to inspect the worktree, index, non-ignored untracked files, and `HEAD`. After staging and before creating a commit, run `python scripts/preflight.py <repository> --staged-only --identity-policy <selected-policy>` and review the staged diff and relevant validation. Before pushing committed refs, run `python scripts/preflight.py <repository> --committed-only --ref <candidate-ref>` for every ref in the planned push.
 3. Run the project's relevant lint, test, type-check, build, package, and documentation checks. Do not install dependencies or alter toolchains unless authorized.
 4. Report **blocker**, **warning**, and **advisory** findings with evidence and remedies. Read [references/standards.md](references/standards.md) for acceptance criteria.

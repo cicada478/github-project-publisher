@@ -4,7 +4,7 @@ Use **MUST** for blockers, **SHOULD** for expectations that need a recorded reas
 
 ## Candidate and authority
 
-- MUST identify the repository root, exact candidate refs and resolved object IDs, worktree/staged scope when applicable, destination, and intended visibility.
+- MUST identify the repository root and candidate content, including exact refs and resolved object IDs or worktree/staged scope when applicable. Destination and intended visibility MUST be resolved before checks or operations that depend on them; a local audit may report them as undetermined and complete all independent local checks without asking for a publication target.
 - MUST preserve unrelated user changes and MUST NOT publish material with unresolved privacy, authorship, license, or redistribution rights.
 - MUST ask only when an unresolved choice changes authority, rights, disclosure, destructive impact, delivery path, release meaning, or public visibility. Deterministic checks and already authorized ordinary steps do not need repeated confirmation.
 

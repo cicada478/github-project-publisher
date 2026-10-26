@@ -10,6 +10,8 @@ This repository contains the GitHub Project Publisher skill source. The stable v
 
 The current source also contains index scanning not yet included in a stable release (`--staged-only`) and two-stage review improvements. The related documentation below describes current source; a `v0.4.3` download does not include those improvements.
 
+The next version is being prepared as `v0.4.3..v0.4.4` and has not been released. This update clarifies that local audits need no predetermined publication target or visibility. Unresolved choices pause only dependent work; independent, authorized checks and preparation can continue.
+
 ## Capabilities
 
 - Separates audit-only, local preparation, repository publication, and Release publication modes.
@@ -23,8 +25,25 @@ The current source also contains index scanning not yet included in a stable rel
 - Computes SHA-256 for every user-uploaded Release asset and compares it with GitHub's remote digest.
 - Uses a decision matrix to distinguish no-question paths, binary confirmation, option cards, free-form questions, and host permissions; required decisions stop before mutation, no material option is dropped for UI capacity, and explains each outcome and material tradeoff, marking a recommendation only when evidence supports it.
 - Drafts README and Release Notes from code, configuration, test, and history evidence without inventing features, compatibility, or performance claims; Release Notes default to Chinese and English with restrained emoji categories and an adaptable template.
+- Uses fixed default emoji and bilingual category titles, including only relevant categories. Adds a verified Full Changelog link when a previous release range exists and credits contributors from actual records; a separate contributor section is optional. See the [writing guide](github-project-publisher/references/writing-guide.md).
 - Organizes atomic commits with Conventional Commits, including scopes, bodies, footers, and breaking-change metadata.
+- Keeps bilingual READMEs in separate, reciprocally linked files and provides language navigation and complete language blocks within Releases. New commits use forms such as `fix(scope): 🐛 description` when repository policy allows, preserving the type prefix and parser structure. See the [writing guide](github-project-publisher/references/writing-guide.md) and [commit convention](github-project-publisher/references/commit-conventions.md).
 - Respects the authorized scope of Commit, Push, Tag, and Release operations. Routine authorized steps do not require repeated confirmation; unresolved consequential choices, destructive operations, and a new destination becoming public follow separate decision rules.
+
+## Design and execution boundaries
+
+The Skill organizes publishing experience into executable workflows, applicability conditions, and references read when needed:
+
+- **Choose the mode for the task:** The entry point separates audit, preparation, repository publication, and Release publication, limiting the operations in each mode. A local audit needs no predetermined publication target or visibility.
+- **Read details when relevant:** `SKILL.md` keeps mode selection, essential constraints, and reading conditions. Writing, identity, sensitive-data, interaction, and publishing guidance live in `references/` and are consulted for the relevant task or decision.
+- **Preserve applicability boundaries:** Publication review covers candidate refs; existing contributor identities are provenance; machine-local paths alone do not block publication; successful evidence is reused only while its relevant inputs remain unchanged. These boundaries help the agent select an appropriate workflow and reduce unrelated checks and repeated confirmation.
+
+| Area | Execution approach | Constraints and room for adaptation |
+| --- | --- | --- |
+| Deterministic checks and publishing operations | Strictly execute applicable scripts, verification, and authorization gates | Index Blob and candidate-history scans, Release asset digest comparisons, exact staging and push scope, and remote-ref verification must use actual inputs and results. Never skip a check or claim it passed on assumption. Fill command arguments from verified project, ref, and destination information. |
+| Document organization and contextual decisions | Select an approach from project evidence, reader tasks, and user requirements | README sections, release-note length, change grouping, and wording can vary; templates can be shortened. Determine review scope, finding severity, and when to ask using the rules' applicability conditions, while respecting factual, authorization, and safety boundaries. |
+
+For example, a missing publication target allows a local audit to continue but must be resolved before pushing. Task organization and workflow choices can adapt; required checks and their passing criteria still apply. See the [Skill entry point](github-project-publisher/SKILL.md), [publication standards](github-project-publisher/references/standards.md), and [writing guide](github-project-publisher/references/writing-guide.md) for detailed requirements.
 
 ## Workflow
 

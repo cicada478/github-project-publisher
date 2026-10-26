@@ -8,6 +8,9 @@ venv/
 # Local behavioral-eval outputs
 evals/artifacts/
 
+# Local developer journals (all versions; never part of publication)
+DEVLOG*.md
+
 # Credentials and local configuration
 .env
 .env.*

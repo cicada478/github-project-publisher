@@ -2,6 +2,8 @@
 
 Ask only when an unresolved answer changes authority, rights, disclosure, destructive impact, delivery path, release meaning, or the public contract. Stop before the affected mutation. Do not use questions to offload deterministic safety work.
 
+Determine whether the current check or operation actually depends on the missing answer. A local audit needs no publication destination or visibility: record them as undetermined, complete the local checks, and report target-dependent checks as pending rather than failed or passed. Resolve the target before those checks or external operations. When a consequential choice does need an answer, pause only dependent work and continue independent, authorized inspection or preparation; do not stage, commit, or publish material whose scope or authority depends on that answer.
+
 Use the interaction capability available in the current turn. When structured input is available for a bounded choice, call it rather than imitating a card in prose. Host permission prompts grant technical execution permission; they do not answer business decisions.
 
 ## Choose the interaction

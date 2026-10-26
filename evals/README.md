@@ -1,6 +1,8 @@
 # Skill interaction-policy evals
 
-`cases.jsonl` checks activation and interaction routing: direct and implicit activation, negative activation, incomplete input, each interaction route, `request_user_input` availability, and blocker behavior. It does not replace the deterministic temporary-repository tests in `github-project-publisher/tests/`, which validate publication-ref scoping, identity handling, historical scanning, and Release asset integrity.
+`cases.jsonl` describes skill applicability and interaction-routing scenarios: direct and implicit requests, negative applicability, incomplete input, each interaction route, `request_user_input` availability, and blocker behavior. Local audit/preparation without a destination and publication with conflicting destinations form a contrast: missing target information matters only when the requested work depends on it.
+
+The default command validates corpus structure and coverage only. With `--execute`, the runner explicitly asks the model to read the skill and report its policy decision as JSON. This tests policy understanding, not automatic skill discovery, actual tool calls, continued independent work, or generated artifact quality. The current result schema cannot verify which local checks continue while a destination choice is pending. It does not replace the deterministic temporary-repository tests in `github-project-publisher/tests/`, which validate publication-ref scoping, identity handling, historical scanning, and Release asset integrity.
 
 Validate the corpus without model access:
 

@@ -14,6 +14,37 @@ This profile refines the supplied `commit规范.md` into a self-contained Conven
 
 There is no space before the colon and exactly one space after it. The body begins after one blank line; footers begin after another blank line.
 
+### Emoji presentation
+
+For newly authored messages, use one emoji at the start of the description when repository policy and validation allow it:
+
+```text
+fix(completion): 🐛 handle zsh completion on Debian
+chore: 🔧 refresh local development settings
+```
+
+The parseable header remains `<type>[scope][!]: <description>`; the emoji is part of the description. Do not prepend an emoji before the type by default: `🐛 fix: ...` requires a deliberately compatible parser/lint configuration and is not the canonical Conventional Commits prefix. Preserve an established repository style or explicit user requirement, including emoji-free messages, and validate with existing tooling. Do not install or reconfigure tooling just to add icons, or rewrite existing commits for presentation.
+
+Use the following default pairs for new messages; repository-specific mappings take precedence:
+
+| Type | Emoji | Meaning |
+| --- | --- | --- |
+| `feat` | ✨ | New functionality |
+| `fix` | 🐛 | Bug fix |
+| `docs` | 📝 | Documentation |
+| `style` | 🎨 | Code formatting |
+| `refactor` | ♻️ | Code restructuring |
+| `perf` | ⚡️ | Performance improvement |
+| `test` | ✅ | Test changes |
+| `build` | 📦 | Build or packaging |
+| `ci` | 👷 | CI configuration or scripts |
+| `chore` | 🔧 | Other maintenance |
+| `revert` | ⏪️ | Reverting changes |
+
+These are this profile's presentation defaults, informed by [Gitmoji's definitions](https://github.com/carloscuesta/gitmoji/blob/master/packages/gitmojis/src/gitmojis.json), not additional Conventional Commits requirements. `🐛` depicts a bug and denotes fixing a software bug. `🔀` denotes merging branches. Do not add `merge` as a conventional type merely to use it: preserve repository-generated merge messages unless a custom message is requested and supported. Squash commits use the actual change type, such as `fix`, rather than a merge label. Emoji never replaces the type, `!`, or a required `BREAKING CHANGE` footer and does not determine the version bump.
+
+Choose the type from the staged behavior: correcting broken shell completion is normally `fix(completion)`, whereas unrelated completion-file maintenance may be `chore`. Count the emoji and spacing toward subject/header limits using the repository's actual validator. Release category icons and commit icons serve different documents and need not share every mapping.
+
 Examples:
 
 ```text
@@ -93,7 +124,7 @@ Semantic Versioning mapping applies only when the project has adopted SemVer and
 2. Partition changes by coherent intent. Do not mix unrelated cleanup with a feature, fix, or documentation change.
 3. Stage explicit paths or hunks and inspect `git diff --cached`.
 4. Choose the type from behavior and intent; choose a stable scope only when useful.
-5. Draft the subject from the staged result. Add rationale, migration, issue references, or breaking-change metadata only when evidenced.
+5. Draft the subject from the staged result. Apply the emoji presentation profile when repository policy allows it. Add rationale, migration, issue references, or breaking-change metadata only when evidenced.
 6. Run the repository's commit-message validation if configured. Otherwise check this profile manually.
 7. Run `python scripts/preflight.py <repository> --staged-only --identity-policy <selected-policy>` after staging. Block on sensitive findings or incomplete scans. Record the `index_fingerprint`, inspect the staged diff without exposing sensitive values, and complete relevant project checks; worktree checks alone do not validate different staged content. Confirm the index fingerprint is unchanged immediately before committing; rerun affected checks if it changes.
 8. After committing, inspect `git show --stat --oneline --decorate HEAD` and verify that the commit contains the intended files and message.
