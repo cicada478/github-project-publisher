@@ -27,6 +27,8 @@ Do not invent alternatives to force a choice card, repeat authorization for ordi
 - Use of a non-empty destination, remote replacement, force-push, history rewrite, deletion, or replacement of a Tag or Release.
 - Disposition of a suspected sensitive-data false positive when it cannot be resolved deterministically.
 - Final conversion of a newly created verified private destination to public.
+- Private staging destination for an update when the user and project have not settled it. Ask about the staging target while preserving the formal repository's existing visibility.
+- After private staging passes, approval to expose the verified candidate in the existing public repository. Offer publish or defer using the available interaction capability and wait for the user's decision.
 
 For a bounded choice, state each option's outcome and material tradeoff. Mark a recommendation only when evidence supports it. Never offer bypassing a mandatory safety gate as an option.
 

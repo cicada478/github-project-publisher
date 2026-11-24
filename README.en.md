@@ -6,9 +6,9 @@ A Codex GitHub publishing assistant for ordinary project authors. It can perform
 
 ## Project status
 
-This repository contains the GitHub Project Publisher skill source. The current stable version is [`v0.4.4`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.4.4); see [RELEASE_NOTES.md](RELEASE_NOTES.md) for the changes.
+This repository contains the GitHub Project Publisher skill source. Download the latest published version from [GitHub Releases](https://github.com/cicada478/github-project-publisher/releases/latest) or read the version history in [RELEASE_NOTES.md](RELEASE_NOTES.md).
 
-v0.4.4 includes index scanning (`--staged-only`) and separate Commit/Push gates, clarifies local-audit and unresolved-decision boundaries, and refines bilingual release writing and commit guidance. The older `v0.4.3` release does not include these improvements.
+`v0.4.5` adds private staging for updates to existing public projects. When an update needs remote verification before it becomes public, upload the candidate to a separate private repository, verify it, and then approve the public release.
 
 ## Capabilities
 
@@ -18,7 +18,7 @@ v0.4.4 includes index scanning (`--staged-only`) and separate Commit/Push gates,
 - Reviews current content and historical text blobs reachable from the exact branches or Tags selected for publication; unrelated local branches, Tags, and stashes are not treated as upload candidates.
 - Preparation can reuse content scans for tracked Blobs identical across the worktree and index/candidate history. The separate Commit and Push gates still run independently. The workflow reuses successful evidence only while the index snapshot, ref OIDs, identity policy, configuration, assets, destination, and other relevant inputs remain unchanged.
 - Reviews publishable logs, HAR files, traces, dumps, crash reports, and source code that logs sensitive fields.
-- Creates a new repository privately first when its intended end state is public; existing public repositories keep their established visibility and collaboration workflow.
+- Verifies new repositories privately before their first public release. For updates to existing public repositories, it can verify a candidate in a separate private staging repository and ask before publishing the update.
 - Applies Git identity policy when creating a commit or annotated Tag, or when an identity audit is explicitly requested. Existing contributors, bots, imported history, and Taggers are reported as provenance and do not block ordinary publication merely because they differ from the current publisher.
 - Computes SHA-256 for every user-uploaded Release asset and compares it with GitHub's remote digest.
 - Uses a decision matrix to distinguish no-question paths, binary confirmation, option cards, free-form questions, and host permissions; required decisions stop before mutation, no material option is dropped for UI capacity, and explains each outcome and material tradeoff, marking a recommendation only when evidence supports it.
@@ -50,11 +50,13 @@ Inventory the project and identify candidate scope
   → prepare: scan worktree, index, and candidate history; run relevant project checks
   → prepare README and Release text as needed; rerun checks invalidated by edits
   → if a new Commit is needed: confirm identity → stage exact paths → Commit gate → Commit
-  → publish: verify destination → run the Push gate on final refs → Push
-  → compare remote refs with intended object IDs
-  → for a Release: verify Tag, version, and notes; use a draft and compare digests for uploaded assets
-  → for a new public destination: verify a fresh clone → obtain the final public-conversion decision
+  → publication: verify the destination → run the Push gate on the final refs
+    ├─ routine publication: push → verify the remote result
+    ├─ first public release of a new repository: upload privately → verify a fresh clone → approve public conversion → verify public access
+    └─ public project requiring private verification: push to private staging → verify a fresh clone → approve and publish → verify the public result
 ```
+
+Remote verification includes comparing refs with their intended object IDs. For a GitHub Release, also verify the Tag, version, and notes. For uploaded assets, use a draft and compare digests.
 
 The workflow must stop when sensitive data is detected or a required check cannot complete. Risk reports include categories, safe locations, and remedies. Locations can be `path:line` or Blob/ref identifiers; repository-level findings may have no line number. Matched sensitive values are never echoed.
 
@@ -109,7 +111,7 @@ This project does not treat a single blog post or personal preference as a unive
 | GitHub repository governance | Require a README, effective ignore rules, applicable verification, and explicit license status; classify blockers, warnings, and advisories | [GitHub: Best practices for repositories](https://docs.github.com/en/repositories/creating-and-managing-repositories/best-practices-for-repositories), [project publication standards](github-project-publisher/references/standards.md) |
 | README authorship | Explain purpose, value, installation, minimal use, support, maintenance status, and limitations; ground claims in repository evidence | [GitHub: About READMEs](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes), [project writing guide](github-project-publisher/references/writing-guide.md) |
 | Sensitive-data and privacy gate | Inspect current files and historical blobs reachable from the exact candidate refs, plus credentials, personal information, payment data, captured logs, and sensitive logging calls; block candidate findings or incomplete required checks | [GitHub: Push protection](https://docs.github.com/en/code-security/concepts/secret-security/push-protection), [project sensitive-data review](github-project-publisher/references/sensitive-data-review.md) |
-| Private-first visibility | Upload a newly created public destination privately first; preserve the visibility and collaboration workflow of existing repositories | [GitHub: Setting repository visibility](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/setting-repository-visibility), [GitHub CLI: `gh repo create`](https://cli.github.com/manual/gh_repo_create), [safe publishing runbook](github-project-publisher/references/publishing-runbook.md) |
+| Private verification before publication | Verify a new repository while private before approving public conversion. For an existing public repository, use separate private staging when requested and confirm before publishing the update | [GitHub: Setting repository visibility](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/setting-repository-visibility), [GitHub CLI: `gh repo create`](https://cli.github.com/manual/gh_repo_create), [safe publishing runbook](github-project-publisher/references/publishing-runbook.md) |
 | Git identity privacy | Prefer the current account's `ID+USERNAME@users.noreply.github.com` for new workflow-created commits; allow a selected personal address with a warning; retain existing collaborative identities as provenance | [GitHub: Email addresses reference](https://docs.github.com/en/account-and-profile/reference/email-addresses-reference), [Git identity policy](github-project-publisher/references/identity-policy.md) |
 | Human decision boundary | Use binary confirmation for a true proceed/cancel checkpoint and structured selection for how/which decisions; when `request_user_input` is available and the semantic test passes, call it directly; the Skill cannot enable Plan mode or host controls; trace deterministic defaults without asking | [OpenAI: Plan mode](https://developers.openai.com/blog/run-long-horizon-tasks-with-codex), [interaction and decision policy](github-project-publisher/references/interaction-policy.md) |
 | Skill behavior verification | Maintain cases for direct, implicit, negative, incomplete-input, structured-card, host-permission, and blocker behavior; ordinary CI validates the corpus and optional manual CI runs live Codex evals | [OpenAI: Testing Agent Skills Systematically with Evals](https://developers.openai.com/blog/eval-skills), [behavior eval guide](evals/README.md) |
@@ -180,8 +182,16 @@ $github-project-publisher Audit the current project, fix safe issues, and draft 
 ```
 
 ```text
-$github-project-publisher Publish this project safely to OWNER/REPOSITORY: upload and verify it privately, then ask me with a structured choice before converting it to public.
+$github-project-publisher Publish this project for the first time to the new OWNER/REPOSITORY. Create it as private, upload and verify it, then use a structured choice to ask whether to make it public.
 ```
+
+**Verify an update to a public project in private**
+
+```text
+$github-project-publisher Update the existing public OWNER/REPOSITORY. Keep it public, verify locally, and upload the candidate to OWNER/REPOSITORY-staging. Create the staging repository as private if it does not exist. After remote verification passes, offer me the choice to publish or defer. Publish the verified version after I approve and check the public result.
+```
+
+The private staging repository is retained for reuse by default. For a one-time repository, explicitly request deletion after the public update is verified. See the [private staging workflow](github-project-publisher/references/publishing-runbook.md#verify-an-update-in-private-staging).
 
 Implicit invocation is enabled in `agents/openai.yaml`, so a matching request may activate the skill without an explicit mention.
 

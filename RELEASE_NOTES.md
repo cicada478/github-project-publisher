@@ -1,3 +1,61 @@
+# v0.4.5 — 公开更新前的私有暂存 / Private staging before public updates
+
+[中文](#v045-zh) | [English](#v045-en)
+
+<a id="v045-zh"></a>
+
+## 中文
+
+已公开的项目可以在独立私有仓库验证下一版本。验证通过后，技能会请你确认是否正式发布，正式仓库全程保持公开。
+
+### 本次更新
+
+#### ✨ 新增
+
+- 指定一个获授权的私有暂存仓库，推送候选版本后比对远端提交 SHA，在全新克隆中运行适用检查，并核对已上传的发布附件摘要。
+- 确认正式发布后，核验公开的 refs、Release 目标和附件是否与获批候选一致。如果候选提交或附件变化，重新执行受影响的检查并确认发布。暂存仓库默认保留供后续版本复用，删除需要明确授权。
+
+#### 📚 文档与维护
+
+- 中英文 README 分别提供首次公开仓库和私有验证后更新现有公开仓库的提示词。发布标准明确要求在私有暂存流程中验证全新克隆。
+
+### 升级
+
+替换已安装的完整 `github-project-publisher` 文件夹即可升级。本次更新涉及技能指令和文档。
+
+### 验证
+
+本地 33 项单元测试、技能格式检查和 15 个策略场景的语料校验通过。语料校验覆盖结构与场景类别。本轮只做本地验证。
+
+<a id="v045-en"></a>
+
+## English
+
+Existing public projects can verify their next version in a separate private repository. After verification passes, the skill asks for approval to publish the update while the formal repository stays public throughout.
+
+### What's Changed
+
+#### ✨ Features
+
+- Specify an authorized private staging repository. After pushing the candidate, compare the remote commit SHA, run applicable checks from a fresh clone, and verify the digests of any uploaded release assets.
+- Once publication is approved, verify the public refs, Release target, and assets against the approved candidate. If the commit or assets change, rerun the affected checks and obtain approval again. The staging repository is retained for reuse by default. Deletion requires explicit authorization.
+
+#### 📚 Docs & Chores
+
+- Both READMEs provide separate prompts for first-time publication and for updating an existing public repository after private verification. The publication standards explicitly require fresh-clone verification for private staging.
+
+### Upgrade
+
+Replace the complete installed `github-project-publisher` folder. This update covers skill instructions and documentation.
+
+### Verification
+
+All 33 unit tests and the skill format check passed locally. The 15-case policy corpus passed its structure and coverage checks. Verification for this draft was local.
+
+**完整变更 / Full Changelog**: [`v0.4.4...v0.4.5`](https://github.com/cicada478/github-project-publisher/compare/v0.4.4...v0.4.5)
+
+---
+
 # v0.4.4 — 分阶段审查与发布指南 / Staged review and publishing guidance
 
 发布日期 / Release date: 2026-10-26

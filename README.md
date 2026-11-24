@@ -6,9 +6,9 @@
 
 ## 项目状态
 
-本仓库包含 GitHub Project Publisher 的 Skill 源码。当前稳定版本为 [`v0.4.4`](https://github.com/cicada478/github-project-publisher/releases/tag/v0.4.4)，完整变更见 [RELEASE_NOTES.md](RELEASE_NOTES.md)。
+本仓库包含 GitHub Project Publisher 的 Skill 源码。下载请前往 [GitHub Releases](https://github.com/cicada478/github-project-publisher/releases/latest)，各版本变更见 [RELEASE_NOTES.md](RELEASE_NOTES.md)。
 
-v0.4.4 包含暂存区扫描（`--staged-only`）和独立的 Commit／Push 审查，明确本地审计与未决选择的执行边界，并完善双语发布文案及 Commit 规范。旧版 `v0.4.3` 不包含这些改进。
+`v0.4.5` 为已公开项目的版本更新补充私有暂存流程。需要在公开前完成远端验证时，可先将候选版本上传至独立私有仓库，核验通过后再确认正式发布。
 
 ## 核心能力
 
@@ -18,7 +18,7 @@ v0.4.4 包含暂存区扫描（`--staged-only`）和独立的 Commit／Push 审�
 - 对精确发布分支或 Tag 的当前内容与历史文本 Blob 实施敏感信息审查；不会把无关本地分支、Tag 或 stash 自动视为待上传内容。
 - 准备模式可对工作树与暂存区／候选历史中完全相同的已跟踪 Blob 复用内容扫描；独立的 Commit、Push 关卡仍分别执行。流程仅在暂存快照、ref OID、身份策略、配置、资产和目标等相关输入未变化时复用成功证据。
 - 检查可发布日志、HAR、trace、dump、崩溃报告，以及源码中的敏感字段日志调用。
-- 新建且最终需要公开的仓库先以 Private 上传和验证，公开转换作为独立最终决策；既有公开仓库沿用原有可见性和协作流程。
+- 新仓库首次公开前先以私有状态上传和验证。已公开项目如需私有验证，可先将候选版本上传到独立的私有暂存仓库，验证后再确认正式发布。
 - 在创建新提交或附注 Tag，或明确请求身份审计时应用 Git 身份策略：推荐 GitHub ID 型 noreply，个人邮箱可选。既有贡献者、Bot、导入历史和 Tagger 身份作为来源信息报告，不因不同于当前发布者而阻断普通发布。
 - 对每个用户上传的 Release 资产计算 SHA-256，并与 GitHub 返回的远端 digest 比对。
 - 通过决策矩阵区分无需提问、二元确认、选项对话卡片、自由文本问题和宿主权限提示；该问的决策必须在变更前询问，卡片不得因界面容量遗漏实质方案，并说明各方案的结果与实质取舍；有证据支持时才标注推荐。
@@ -50,11 +50,13 @@ Skill 将发布经验组织为可执行的流程、适用条件和按需读取�
   → 准备：扫描工作区、暂存区与候选历史，执行相关项目检查
   → 按需准备 README 与 Release 文案，重跑受改动影响的检查
   → 若需新 Commit：确认身份 → 精确暂存 → Commit 前审查 → Commit
-  → 发布：核验目标仓库 → 对最终 refs 执行 Push 前审查 → Push
-  → 比对远端 refs 与预期对象 ID
-  → 若需 Release：核验 Tag、版本和文案；有上传资产时先建 draft 并核对 digest
-  → 新建且计划公开的仓库：全新克隆验证 → 最终确认转为 Public
+  → 发布：核验目标仓库 → 对最终 refs 执行 Push 前审查
+    ├─ 常规发布：推送 → 核验远端结果
+    ├─ 新建仓库首次公开：私有上传 → 全新克隆验证 → 确认后转为 public → 核验公开结果
+    └─ 已公开项目要求私有验证：推送到私有暂存仓库 → 全新克隆验证 → 确认后正式发布 → 核验公开结果
 ```
+
+远端核验包括比对 refs 与预期对象 ID。需要发布 GitHub Release 时，还要核验 Tag、版本和文案。有上传附件时，先建草稿并核对摘要。
 
 发现敏感信息或必要检查失败时，工作流必须停止。风险报告包含类别、安全位置与处理建议；位置可为 `文件:行号`、Blob／ref 标识，仓库级问题也可能没有行号，不回显匹配到的敏感原值。
 
@@ -109,7 +111,7 @@ flowchart TB
 | GitHub 仓库治理 | 要求 README、有效忽略规则、必要验证、明确许可证状态，并区分阻断项、警告项与建议项 | [GitHub：Best practices for repositories](https://docs.github.com/en/repositories/creating-and-managing-repositories/best-practices-for-repositories)、[项目发布标准](github-project-publisher/references/standards.md) |
 | README 撰写 | 说明项目用途、价值、安装、最小用例、支持方式、维护状态和限制；所有结论必须有项目证据 | [GitHub：About READMEs](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes)、[本项目写作指南](github-project-publisher/references/writing-guide.md) |
 | 敏感信息与隐私门禁 | 检查精确候选 refs 的当前文件与历史 Blob，以及凭证、个人信息、支付数据、日志成品和敏感日志调用；候选内容命中或必要检查失败时阻止发布 | [GitHub：Push protection](https://docs.github.com/en/code-security/concepts/secret-security/push-protection)、[本项目敏感信息审查](github-project-publisher/references/sensitive-data-review.md) |
-| Private-first 可见性 | 新建且计划公开的仓库先 Private 上传和验证；既有仓库保留其可见性和协作方式 | [GitHub：Setting repository visibility](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/setting-repository-visibility)、[GitHub CLI：`gh repo create`](https://cli.github.com/manual/gh_repo_create)、[安全发布手册](github-project-publisher/references/publishing-runbook.md) |
+| 公开前的私有验证 | 新仓库以私有状态验证后再确认公开。已公开项目按需在独立私有仓库验证候选版本，再确认正式发布 | [GitHub：Setting repository visibility](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/managing-repository-settings/setting-repository-visibility)、[GitHub CLI：`gh repo create`](https://cli.github.com/manual/gh_repo_create)、[安全发布手册](github-project-publisher/references/publishing-runbook.md) |
 | Git 提交邮箱隐私 | 为本工作流创建的新提交优先使用当前账户的 `ID+USERNAME@users.noreply.github.com`；个人邮箱需接受公开风险；既有协作身份默认保留并作为来源信息报告 | [GitHub：Email addresses reference](https://docs.github.com/en/account-and-profile/reference/email-addresses-reference)、[Git 身份策略](github-project-publisher/references/identity-policy.md) |
 | 人机决策边界 | “做不做”使用必要的二元确认，“怎么做/选哪个”必须使用结构化选择；当 `request_user_input` 可用且语义条件满足时必须真实调用；Skill 不能自行开启 Plan 模式或宿主控件；确定性默认动作自动执行但记录依据、范围和结果 | [OpenAI：Plan mode](https://developers.openai.com/blog/run-long-horizon-tasks-with-codex)、[交互与决策策略](github-project-publisher/references/interaction-policy.md) |
 | Skill 行为验证 | 以直接触发、隐式触发、负向触发、不完整输入、结构化卡片、宿主权限和阻断场景组成行为语料；普通 CI 校验语料，手动 CI 可运行真实 Codex eval | [OpenAI：Testing Agent Skills Systematically with Evals](https://developers.openai.com/blog/eval-skills)、[行为 eval 说明](evals/README.md) |
@@ -180,8 +182,16 @@ $github-project-publisher 检查当前项目，修复可安全处理的问题，
 ```
 
 ```text
-$github-project-publisher 将当前项目安全发布到 OWNER/REPOSITORY：先以 private 上传和验证，在最终转为 public 前用对话式选项询问我。
+$github-project-publisher 首次发布当前项目到尚未创建的 OWNER/REPOSITORY。先创建为 private，上传并验证，再用对话式选项询问我是否转为 public。
 ```
+
+**更新已公开项目，先私有验证**
+
+```text
+$github-project-publisher 更新已公开的 OWNER/REPOSITORY。保持正式仓库公开，先在本地验证，再把候选版本上传到 OWNER/REPOSITORY-staging。暂存仓库不存在就创建为 private。远程验证通过后，用对话式选项询问我「正式发布」或「暂不发布」。我确认后再发布已验证的版本，并检查正式发布结果。
+```
+
+私有暂存仓库默认保留，供后续版本复用。如果你希望删除一次性暂存仓库，可以明确要求在正式发布核验通过后删除该仓库。详见[私有暂存发布流程](github-project-publisher/references/publishing-runbook.md#verify-an-update-in-private-staging)。
 
 `agents/openai.yaml` 允许隐式调用，因此“检查项目并准备上传 GitHub”等请求也可能自动启用本 Skill。
 

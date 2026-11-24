@@ -16,6 +16,8 @@ Help ordinary project authors publish safely without requiring Git or security e
 
 A request to publish authorizes ordinary in-scope preparation and a non-force push, not destructive history changes, destination overwrite, or an unrequested visibility change. Create a new destination privately first only when its requested end state is public; verify it before asking for the final public conversion. Preserve an existing repository's visibility and workflow.
 
+When a user requests private upload and verification before publishing an update to an existing public repository, use a separate authorized private staging repository. Read [the private staging workflow](references/publishing-runbook.md#verify-an-update-in-private-staging). Ask for the staging destination only if it is unresolved. After verification, obtain approval for the public update before exposing the candidate. Routine public updates follow the repository's established workflow.
+
 If existing authorization and project evidence do not settle a choice affecting the destination, rights, disclosure, destructive impact, delivery path, or release meaning, read [references/interaction-policy.md](references/interaction-policy.md) before the affected operation. Pause only work that depends on the answer; continue independent, authorized inspection or preparation. Do not ask for a publication destination or visibility merely to complete a local audit.
 
 ## Establish and verify the candidate
@@ -44,6 +46,6 @@ Preserve correct content and established language. Ground claims in code, config
 
 Read [references/publishing-runbook.md](references/publishing-runbook.md) only for external repository, push, Tag, visibility, or Release operations. Prefer non-interactive `gh` and `git` after verifying authentication and destination. Never expose tokens, force-push, rewrite published history, replace a Tag or Release, change visibility, or overwrite a non-empty destination unless that exact action is separately requested and understood.
 
-After pushing, fetch or view the remote ref and compare it with the intended commit. A fresh clone is additionally required only for a newly created private destination before public conversion or when checkout/reproducibility is itself at risk. For user-supplied Release assets, run `scripts/release_integrity.py OWNER/REPO TAG [FILES...]`; missing assets or digests, mismatches, and incomplete verification block publication.
+After pushing, fetch or view the remote ref and compare it with the intended commit. A fresh clone is additionally required for a newly created private destination before public conversion, for private staging before publishing an update, or when checkout or reproducibility is at risk. For user-supplied Release assets, run `scripts/release_integrity.py OWNER/REPO TAG [FILES...]`; missing assets or digests, mismatches, and incomplete verification block publication.
 
 Return a proportional record: mode and outcome, unresolved risks, files changed, checks run or reused, evidence inputs, consequential decisions, published refs and commit SHA, URLs, and correction guidance. Do not claim success until the remote result is verified.

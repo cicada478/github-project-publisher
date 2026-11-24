@@ -29,7 +29,7 @@ Use **MUST** for blockers, **SHOULD** for expectations that need a recorded reas
 ## Publication and release
 
 - MUST verify the remote branch or Tag resolves to the intended commit after push.
-- MUST verify a fresh clone before converting a newly created private destination to public. Other pushes need a fresh clone only when checkout, packaging, or reproducibility is at risk.
+- MUST verify a fresh clone before converting a newly created private destination to public or publishing an update verified in private staging. Other pushes need a fresh clone only when checkout, packaging, or reproducibility is at risk.
 - MUST align version declarations, Tag, package metadata, documentation, and Release title.
 - MUST NOT move or reuse a published version; issue a corrective version.
 - MUST compare local SHA-256 with GitHub's remote digest for every user-supplied Release asset. Report the gate as not applicable when there are no uploaded assets.

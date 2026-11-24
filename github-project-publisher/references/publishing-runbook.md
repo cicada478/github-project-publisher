@@ -60,6 +60,16 @@ Do not push all branches or Tags by default. After push, fetch or view the remot
 
 For a newly created private destination that may become public, clone it into an isolated temporary directory and verify the expected refs, checkout, and publication content. This remote verification replaces another identical local scan. Remove the temporary clone afterward.
 
+## Verify an update in private staging
+
+Use this path when the user asks to keep the candidate private until remote validation is complete and the formal destination is already public. Keep the formal repository public and the staging repository private. Use the user-authorized staging destination or an established staging repository authorized for this project. If neither is available, propose a specific staging destination and wait for authorization before creating or uploading to it. Continue independent local checks while waiting.
+
+1. Resolve the version, candidate commit SHA, intended public refs, and any assets. Verify the staging owner, repository, and private visibility before upload. Push only the candidate refs without force to an explicitly named staging destination. Use a separate remote name if needed and preserve the formal remote and upstream.
+2. Compare the staged remote refs with the preflight candidate. Clone the private staging repository into an isolated temporary directory, check out the exact candidate, and run applicable checks against that checkout. If uploading candidate Release assets for verification, compare every staged asset digest with its local file using the Release procedure below. Remove the temporary local clone after verification.
+3. Present the staging result, exact candidate SHA, any asset digests, and what will become public. Wait for explicit approval before exposing the candidate through any ref, pull request, release draft, or asset upload in the public repository. Keep the candidate private if checks fail or publication is deferred.
+4. After approval, recheck the formal destination and publish through its established workflow. Check the actual public refs, Release target, and assets against the approved candidate. If the workflow needs a different candidate commit or asset before publication, rerun the checks affected by the change and request approval for the revised candidate before exposing it. Verify the public result after the operation.
+5. Retain the private staging repository by default so it can be reused. Delete a remote staging repository or its refs only when the user explicitly authorizes that exact cleanup and the formal update has been verified.
+
 ## Publish a Release
 
 Identify the previous release and candidate range. Confirm version policy, exact target commit, notes, and draft/pre-release/stable state. Prefer reviewed notes from a local Markdown file. When assets are attached, create a draft first:
